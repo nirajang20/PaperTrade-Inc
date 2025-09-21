@@ -22,7 +22,7 @@ require PATH_LIB . "PAGE-top.php"; ?>
       <div class="col-md-4 col-sm-6 mb-3">
         <div class="small-box bg-success">
           <div class="inner">
-            <h3 id="available-cash">$25,124</h3>
+            <h3 id="available-cash">$25,100</h3>
             <p>Available Cash</p>
           </div>
           <div class="icon"><i class="fas fa-wallet"></i></div>
