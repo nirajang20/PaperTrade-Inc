@@ -1,3 +1,4 @@
+<?php if ($_ISADMIN) { ?>
 </div>
   <!-- /.content-wrapper -->
   <footer class="main-footer">
@@ -8,6 +9,11 @@
     </div>
   </footer>
 </div>
+
+<?php } ?>
+<!-- ./wrapper -->
+
+
 <!-- jQuery -->
 <script src="<?=URL_HOST?>plugins/jquery/jquery.min.js"></script>
 <!-- jQuery UI 1.11.4 -->

@@ -1,27 +1,27 @@
 <?php
-// (A) ERROR HANDLING - CHANGE TO YOUR OWN
+// (A) ERROR HANDLING
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set("display_errors", 1);
-// ini_set("log_errors", 1);
-// ini_set("error_log", "PATH/error.log");
 
-// (B) DATABASE SETTINGS - CHANGE TO YOUR OWN
-define("DB_HOST", "127.0.0.1");
-define("DB_PORT", 3307); // use local forwarded port
+// (B) DATABASE SETTINGS
+define("DB_HOST", "127.0.0.1"); // must be 127.0.0.1, not localhost
+define("DB_PORT", 3307);        // tunnel port
 define("DB_NAME", "trade");
 define("DB_CHARSET", "utf8");
 define("DB_USER", "trade_user");
 define("DB_PASSWORD", "trade_user");
 
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT);
 
-// (C) URL
-define("URL_HOST", "http://localhost/trade/dashboard/"); // CHANGE TO YOUR OWN
+// (C) CONNECT
+$conn = mysqli_connect("127.0.0.1", "trade_user", "trade_user", "trade", 3307);
+
+// (D) URL
+define("URL_HOST", "http://localhost/trade/dashboard/");
 define("URL_PUBLIC", URL_HOST . "public/");
 
-// (D) FILE PATHS
+// (E) FILE PATHS
 define("PATH_LIB", __DIR__ . DIRECTORY_SEPARATOR);
 define("PATH_BASE", dirname(PATH_LIB) . DIRECTORY_SEPARATOR);
 
-// (E) START SESSION
+// (F) SESSION
 session_start();
