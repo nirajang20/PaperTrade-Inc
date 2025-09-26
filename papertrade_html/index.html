@@ -1,0 +1,1414 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <title>PaperTrade</title>
+        <style>
+            @keyframes gridMove {
+                0% {
+                    transform: translate(0, 0);
+                }
+                100% {
+                    transform: translate(50px, 50px);
+                }
+            }
+
+            .glass-card {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            }
+
+            .glass-card:hover {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            }
+
+            .glow-button {
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+                transition: all 0.3s ease;
+            }
+
+            .glow-button:hover {
+                box-shadow: 0 0 30px rgba(16, 185, 129, 0.5);
+                transform: translateY(-2px);
+            }
+
+            .mobile-menu {
+                display: none;
+            }
+
+            .mobile-menu.active {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="min-h-screen bg-black text-white overflow-hidden relative">
+            <!-- Mouse follower glow -->
+            <div
+                id="mouseGlow"
+                class="fixed w-96 h-96 pointer-events-none z-0 transition-all duration-300 ease-out"
+                style="
+                    left: -192px;
+                    top: -192px;
+                    background: radial-gradient(
+                        circle,
+                        rgba(16, 185, 129, 0.1) 0%,
+                        rgba(16, 185, 129, 0.05) 30%,
+                        transparent 70%
+                    );
+                    filter: blur(40px);
+                "
+            ></div>
+
+            <!-- Animated Background -->
+            <div class="fixed inset-0 z-0">
+                <!-- Base dark background -->
+                <div class="absolute inset-0 bg-black"></div>
+
+                <!-- Animated trading chart lines with glow -->
+                <div class="absolute inset-0 opacity-20">
+                    <svg class="w-full h-full" viewBox="0 0 1200 800">
+                        <defs>
+                            <filter id="glow">
+                                <feGaussianBlur
+                                    stdDeviation="3"
+                                    result="coloredBlur"
+                                />
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+
+                            <linearGradient
+                                id="chartGradient1"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stop-color="#10b981"
+                                    stop-opacity="0.8"
+                                />
+                                <stop
+                                    offset="50%"
+                                    stop-color="#3b82f6"
+                                    stop-opacity="0.6"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stop-color="#8b5cf6"
+                                    stop-opacity="0.4"
+                                />
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Animated chart line 1 with glow -->
+                        <path
+                            d="M0,400 Q300,200 600,300 T1200,250"
+                            stroke="url(#chartGradient1)"
+                            stroke-width="3"
+                            fill="none"
+                            filter="url(#glow)"
+                            class="animate-pulse"
+                        >
+                            <animate
+                                attributeName="d"
+                                values="M0,400 Q300,200 600,300 T1200,250;M0,420 Q300,180 600,320 T1200,230;M0,400 Q300,200 600,300 T1200,250"
+                                dur="8s"
+                                repeatCount="indefinite"
+                            />
+                        </path>
+
+                        <!-- Animated chart line 2 with glow -->
+                        <path
+                            d="M0,500 Q400,350 800,400 T1200,380"
+                            stroke="#10b981"
+                            stroke-width="2"
+                            fill="none"
+                            opacity="0.8"
+                            filter="url(#glow)"
+                            class="animate-pulse"
+                            style="animation-delay: 2s"
+                        >
+                            <animate
+                                attributeName="d"
+                                values="M0,500 Q400,350 800,400 T1200,380;M0,480 Q400,370 800,420 T1200,360;M0,500 Q400,350 800,400 T1200,380"
+                                dur="10s"
+                                repeatCount="indefinite"
+                            />
+                        </path>
+
+                        <!-- Animated chart line 3 with glow -->
+                        <path
+                            d="M0,300 Q200,150 500,200 T1200,180"
+                            stroke="#3b82f6"
+                            stroke-width="2"
+                            fill="none"
+                            opacity="0.6"
+                            filter="url(#glow)"
+                            class="animate-pulse"
+                            style="animation-delay: 4s"
+                        >
+                            <animate
+                                attributeName="d"
+                                values="M0,300 Q200,150 500,200 T1200,180;M0,320 Q200,130 500,220 T1200,160;M0,300 Q200,150 500,200 T1200,180"
+                                dur="12s"
+                                repeatCount="indefinite"
+                            />
+                        </path>
+
+                        <!-- Floating particles -->
+                        <circle
+                            cx="100"
+                            cy="100"
+                            r="2"
+                            fill="#10b981"
+                            opacity="0.6"
+                        >
+                            <animateMotion dur="20s" repeatCount="indefinite">
+                                <path d="M100,100 Q600,200 1100,150 T100,100" />
+                            </animateMotion>
+                        </circle>
+                        <circle
+                            cx="200"
+                            cy="300"
+                            r="1.5"
+                            fill="#3b82f6"
+                            opacity="0.4"
+                        >
+                            <animateMotion dur="25s" repeatCount="indefinite">
+                                <path d="M200,300 Q700,100 1000,400 T200,300" />
+                            </animateMotion>
+                        </circle>
+                        <circle
+                            cx="300"
+                            cy="500"
+                            r="1"
+                            fill="#8b5cf6"
+                            opacity="0.3"
+                        >
+                            <animateMotion dur="30s" repeatCount="indefinite">
+                                <path d="M300,500 Q800,300 900,600 T300,500" />
+                            </animateMotion>
+                        </circle>
+                    </svg>
+                </div>
+
+                <!-- Floating trading icons with glow -->
+                <div class="absolute inset-0 overflow-hidden">
+                    <div
+                        class="absolute top-20 left-20 opacity-10 animate-bounce"
+                        style="animation-delay: 0s; animation-duration: 6s"
+                    >
+                        <svg
+                            class="w-16 h-16 text-emerald-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M3 3v18h18" />
+                            <path d="m19 9-5 5-4-4-3 3" />
+                        </svg>
+                    </div>
+                    <div
+                        class="absolute top-40 right-32 opacity-10 animate-bounce"
+                        style="animation-delay: 2s; animation-duration: 8s"
+                    >
+                        <svg
+                            class="w-12 h-12 text-blue-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                            <path d="m22 12-3-3 3-3" />
+                        </svg>
+                    </div>
+                    <div
+                        class="absolute bottom-40 left-32 opacity-10 animate-bounce"
+                        style="animation-delay: 4s; animation-duration: 7s"
+                    >
+                        <svg
+                            class="w-14 h-14 text-purple-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M3 3v18h18" />
+                            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+                        </svg>
+                    </div>
+                    <div
+                        class="absolute bottom-20 right-20 opacity-10 animate-bounce"
+                        style="animation-delay: 1s; animation-duration: 9s"
+                    >
+                        <svg
+                            class="w-10 h-10 text-emerald-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+                            />
+                            <path
+                                d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"
+                            />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Subtle animated grid pattern -->
+                <div
+                    class="absolute inset-0 opacity-5"
+                    style="
+                        background-image:
+                            linear-gradient(
+                                rgba(255, 255, 255, 0.1) 1px,
+                                transparent 1px
+                            ),
+                            linear-gradient(
+                                90deg,
+                                rgba(255, 255, 255, 0.1) 1px,
+                                transparent 1px
+                            );
+                        background-size: 50px 50px;
+                        animation: gridMove 20s linear infinite;
+                    "
+                ></div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="fixed top-0 w-full z-50 glass-card">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center py-4">
+                        <div
+                            class="flex items-center space-x-3 group cursor-pointer"
+                        >
+                            <div
+                                class="w-10 h-10 glass-card rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+                            >
+                                <img src="./logo.png" alt="" />
+                            </div>
+                            <span class="text-2xl font-bold text-white"
+                                >PaperTrade</span
+                            >
+                        </div>
+
+                        <div class="hidden md:flex items-center space-x-8">
+                            <a
+                                href="#features"
+                                class="text-gray-300 hover:text-white hover:scale-105 transition-all duration-300 cursor-pointer"
+                            >
+                                Features
+                            </a>
+                            <a
+                                href="#about"
+                                class="text-gray-300 hover:text-white hover:scale-105 transition-all duration-300 cursor-pointer"
+                            >
+                                About
+                            </a>
+                            <a
+                                href="#pricing"
+                                class="text-gray-300 hover:text-white hover:scale-105 transition-all duration-300 cursor-pointer"
+                            >
+                                Pricing
+                            </a>
+                            <button
+                                class="glass-card glow-button px-6 py-2.5 rounded-xl font-semibold text-white hover:scale-105 transition-all duration-300"
+                            >
+                                Get Started
+                            </button>
+                        </div>
+
+                        <button
+                            id="mobileMenuBtn"
+                            class="md:hidden p-2 rounded-lg glass-card hover:scale-105 transition-all duration-300"
+                        >
+                            <svg
+                                id="menuIcon"
+                                class="w-6 h-6"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <line x1="4" x2="20" y1="6" y2="6" />
+                                <line x1="4" x2="20" y1="12" y2="12" />
+                                <line x1="4" x2="20" y1="18" y2="18" />
+                            </svg>
+                            <svg
+                                id="closeIcon"
+                                class="w-6 h-6 hidden"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="m18 6-12 12" />
+                                <path d="m6 6 12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Hero Section -->
+            <section class="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 z-10">
+                <div class="max-w-7xl mx-auto">
+                    <div
+                        class="text-center transform transition-all duration-1000 translate-y-0 opacity-100"
+                    >
+                        <div
+                            class="inline-flex items-center space-x-2 glass-card rounded-full px-6 py-3 mb-8 hover:scale-105 transition-all duration-300 cursor-pointer"
+                        >
+                            <div
+                                class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+                            ></div>
+                            <span class="text-sm text-gray-300"
+                                >Live Trading Platform</span
+                            >
+                        </div>
+
+                        <h1
+                            class="text-6xl md:text-8xl font-bold mb-8 text-white leading-tight"
+                        >
+                            Trade Smarter,<br />
+                            <span
+                                class="text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                            >
+                                Profit Faster
+                            </span>
+                        </h1>
+
+                        <p
+                            class="text-xl md:text-2xl text-gray-400 mb-12 max-w-4xl mx-auto leading-relaxed"
+                        >
+                            Join thousands of traders who trust our advanced
+                            platform for lightning-fast execution, real-time
+                            analytics, and institutional-grade security.
+                        </p>
+
+                        <div
+                            class="flex flex-col sm:flex-row gap-6 justify-center items-center"
+                        >
+                            <button
+                                class="group glass-card glow-button px-10 py-4 rounded-xl font-semibold text-lg text-white hover:scale-105 transition-all duration-300 flex items-center space-x-3"
+                            >
+                                <span>Start Trading Now</span>
+                                <svg
+                                    class="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="m9 18 6-6-6-6" />
+                                </svg>
+                            </button>
+                            <button
+                                class="px-10 py-4 glass-card rounded-xl font-semibold text-lg text-gray-300 hover:text-white hover:scale-105 transition-all duration-300"
+                            >
+                                Watch Demo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Robinhood-style Trading Platform Section -->
+            <section class="relative w-full h-[800px] overflow-hidden">
+                <!-- Background Section -->
+                <div class="absolute inset-0 w-full h-full">
+                    <picture>
+                        <source
+                            media="(min-width: 1280px)"
+                            srcset="
+                                https://images.ctfassets.net/ilblxxee70tt/4AMLNM2FP37FHghha7757l/c29e98a9b5a31535a7333855183dca7b/wide_homepage_investing_4k_3.jpeg
+                            "
+                        />
+                        <source
+                            media="(max-width: 425px)"
+                            srcset="
+                                https://images.ctfassets.net/ilblxxee70tt/1jvtb9LgLK7amOfYSgNVk7/d1504fdcb9be25bfa5142ee1481b9f32/mobile_homepage_investing_4x.jpeg
+                            "
+                        />
+                        <source
+                            media="(max-width: 767px)"
+                            srcset="
+                                https://images.ctfassets.net/ilblxxee70tt/4zLMa3c6TiFcrBMSjsxu6L/54f499ab5ca3631b606e96c7afcb938d/tablet_homepage_investing_3x.jpeg
+                            "
+                        />
+                        <source
+                            srcset="
+                                https://images.ctfassets.net/ilblxxee70tt/72AW6WOPCImTemmsfDxVFk/276b95a7314a0d484a27f3f51cc47a82/web_homepage_investing_2.jpeg
+                            "
+                        />
+                        <img
+                            alt="Trading Tools"
+                            src="https://images.ctfassets.net/ilblxxee70tt/72AW6WOPCImTemmsfDxVFk/276b95a7314a0d484a27f3f51cc47a82/web_homepage_investing_2.jpeg"
+                            class="w-full h-full object-cover"
+                        />
+                    </picture>
+                </div>
+
+                <!-- Content Overlay -->
+                <div class="relative z-10 h-full">
+                    <div class="flex items-center h-full">
+                        <div class="w-full px-4 sm:px-6 lg:px-8">
+                            <div class="flex w-full justify-end">
+                                <div class="w-full lg:w-1/2">
+                                    <!-- Gradient Overlay -->
+                                    <div
+                                        class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent lg:to-black/20"
+                                    ></div>
+                                    <!-- Content -->
+                                    <div class="relative z-20 pl-35">
+                                        <!-- Label -->
+                                        <div class="mb-6">
+                                            <h3
+                                                class="text-emerald-400 font-semibold text-lg uppercase tracking-wide"
+                                            >
+                                                Intuitive trading tools
+                                            </h3>
+                                        </div>
+
+                                        <!-- Main Headline -->
+                                        <div class="mb-8 pr-3 max-w-[400px]">
+                                            <h2
+                                                class="text-3xl md:text-5xl lg:text-4xl font-bold text-white leading-tight"
+                                            >
+                                                Build your strategy and track
+                                                market trends, seamlessly
+                                            </h2>
+                                        </div>
+
+                                        <!-- Body Text -->
+                                        <div class="mb-10 max-w-[350px]">
+                                            <p
+                                                class="text-xl text-gray-200 leading-relaxed"
+                                            >
+                                                Trade stocks, options, crypto,
+                                                and more on PaperTrade and the
+                                                PaperTrade app.
+                                            </p>
+                                        </div>
+
+                                        <!-- CTA Button -->
+                                        <div class="mb-8">
+                                            <button
+                                                class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 px-8 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                                            >
+                                                Learn more
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Section -->
+            <section class="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="max-w-7xl mx-auto">
+                    <div
+                        class="glass-card rounded-3xl p-8 md:p-12 hover:scale-[1.02] transition-all duration-500"
+                    >
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                            <div
+                                class="text-center group hover:scale-110 transition-all duration-300 cursor-pointer"
+                            >
+                                <div
+                                    class="inline-flex items-center justify-center w-16 h-16 glass-card rounded-2xl mb-4 group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-8 h-8 text-emerald-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+                                        />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path
+                                            d="m22 21-3-3m0 0a2 2 0 0 0 3-3"
+                                        />
+                                    </svg>
+                                </div>
+                                <div
+                                    class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:scale-105 transition-transform duration-300"
+                                >
+                                    500K+
+                                </div>
+                                <div
+                                    class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300"
+                                >
+                                    Active Traders
+                                </div>
+                            </div>
+
+                            <div
+                                class="text-center group hover:scale-110 transition-all duration-300 cursor-pointer"
+                            >
+                                <div
+                                    class="inline-flex items-center justify-center w-16 h-16 glass-card rounded-2xl mb-4 group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-8 h-8 text-blue-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <line x1="12" x2="12" y1="2" y2="22" />
+                                        <path
+                                            d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                                        />
+                                    </svg>
+                                </div>
+                                <div
+                                    class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:scale-105 transition-transform duration-300"
+                                >
+                                    $2.5B
+                                </div>
+                                <div
+                                    class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300"
+                                >
+                                    Daily Volume
+                                </div>
+                            </div>
+
+                            <div
+                                class="text-center group hover:scale-110 transition-all duration-300 cursor-pointer"
+                            >
+                                <div
+                                    class="inline-flex items-center justify-center w-16 h-16 glass-card rounded-2xl mb-4 group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-8 h-8 text-purple-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                                    </svg>
+                                </div>
+                                <div
+                                    class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:scale-105 transition-transform duration-300"
+                                >
+                                    1000+
+                                </div>
+                                <div
+                                    class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300"
+                                >
+                                    Markets Available
+                                </div>
+                            </div>
+
+                            <div
+                                class="text-center group hover:scale-110 transition-all duration-300 cursor-pointer"
+                            >
+                                <div
+                                    class="inline-flex items-center justify-center w-16 h-16 glass-card rounded-2xl mb-4 group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-8 h-8 text-yellow-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <polygon
+                                            points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                        />
+                                    </svg>
+                                </div>
+                                <div
+                                    class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:scale-105 transition-transform duration-300"
+                                >
+                                    4.9★
+                                </div>
+                                <div
+                                    class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300"
+                                >
+                                    Average Rating
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section
+                id="features"
+                class="py-20 px-4 sm:px-6 lg:px-8 relative z-10"
+            >
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center mb-16">
+                        <h2
+                            class="text-5xl md:text-6xl font-bold mb-6 text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                        >
+                            Powerful Trading Features
+                        </h2>
+                        <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                            Everything you need to succeed in today's fast-paced
+                            financial markets
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div
+                            class="group glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer"
+                        >
+                            <div class="flex items-start space-x-6">
+                                <div
+                                    class="flex-shrink-0 w-14 h-14 glass-card rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-7 h-7 text-emerald-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="m3 17 6-6-6-6" />
+                                        <path d="m21 17-6-6 6-6" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3
+                                        class="text-2xl font-semibold mb-3 text-white group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Advanced Analytics
+                                    </h3>
+                                    <p
+                                        class="text-gray-400 leading-relaxed text-lg group-hover:text-gray-300 transition-colors duration-300"
+                                    >
+                                        Real-time market data and sophisticated
+                                        charting tools to make informed trading
+                                        decisions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="group glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer"
+                        >
+                            <div class="flex items-start space-x-6">
+                                <div
+                                    class="flex-shrink-0 w-14 h-14 glass-card rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-7 h-7 text-blue-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13v-6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 4.81 17 6 19 6a1 1 0 0 1 1 1z"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3
+                                        class="text-2xl font-semibold mb-3 text-white group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Bank-Grade Security
+                                    </h3>
+                                    <p
+                                        class="text-gray-400 leading-relaxed text-lg group-hover:text-gray-300 transition-colors duration-300"
+                                    >
+                                        Your funds and personal information are
+                                        protected with industry-leading security
+                                        measures.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="group glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer"
+                        >
+                            <div class="flex items-start space-x-6">
+                                <div
+                                    class="flex-shrink-0 w-14 h-14 glass-card rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-7 h-7 text-purple-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <polygon
+                                            points="13,2 3,14 12,14 11,22 21,10 12,10"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3
+                                        class="text-2xl font-semibold mb-3 text-white group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Lightning Fast Execution
+                                    </h3>
+                                    <p
+                                        class="text-gray-400 leading-relaxed text-lg group-hover:text-gray-300 transition-colors duration-300"
+                                    >
+                                        Execute trades in milliseconds with our
+                                        high-performance trading infrastructure.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="group glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer"
+                        >
+                            <div class="flex items-start space-x-6">
+                                <div
+                                    class="flex-shrink-0 w-14 h-14 glass-card rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300"
+                                >
+                                    <svg
+                                        class="w-7 h-7 text-orange-400 drop-shadow-lg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="M3 3v18h18" />
+                                        <path
+                                            d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3
+                                        class="text-2xl font-semibold mb-3 text-white group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Portfolio Management
+                                    </h3>
+                                    <p
+                                        class="text-gray-400 leading-relaxed text-lg group-hover:text-gray-300 transition-colors duration-300"
+                                    >
+                                        Track and manage your investments with
+                                        comprehensive portfolio analysis tools.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Testimonials Section -->
+            <section class="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center mb-16">
+                        <h2
+                            class="text-5xl md:text-6xl font-bold mb-6 text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                        >
+                            Trusted by Traders Worldwide
+                        </h2>
+                        <p class="text-xl text-gray-400">
+                            See what our community has to say about their
+                            trading experience
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div
+                            class="glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer group"
+                        >
+                            <div class="flex items-center space-x-4 mb-6">
+                                <img
+                                    src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100"
+                                    alt="Sarah Chen"
+                                    class="w-14 h-14 rounded-full object-cover border-2 border-white/20 group-hover:border-emerald-400/50 transition-all duration-300"
+                                />
+                                <div>
+                                    <h4
+                                        class="font-semibold text-white text-lg group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Sarah Chen
+                                    </h4>
+                                    <p class="text-emerald-400">
+                                        Professional Trader
+                                    </p>
+                                </div>
+                            </div>
+                            <p
+                                class="text-gray-300 leading-relaxed mb-4 group-hover:text-white transition-colors duration-300"
+                            >
+                                "The platform's speed and reliability have
+                                transformed my trading experience. Best decision
+                                I made this year."
+                            </p>
+                            <div class="flex text-yellow-400">
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div
+                            class="glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer group"
+                        >
+                            <div class="flex items-center space-x-4 mb-6">
+                                <img
+                                    src="https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100"
+                                    alt="Marcus Rodriguez"
+                                    class="w-14 h-14 rounded-full object-cover border-2 border-white/20 group-hover:border-emerald-400/50 transition-all duration-300"
+                                />
+                                <div>
+                                    <h4
+                                        class="font-semibold text-white text-lg group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Marcus Rodriguez
+                                    </h4>
+                                    <p class="text-emerald-400">
+                                        Investment Manager
+                                    </p>
+                                </div>
+                            </div>
+                            <p
+                                class="text-gray-300 leading-relaxed mb-4 group-hover:text-white transition-colors duration-300"
+                            >
+                                "Outstanding analytics and user interface. The
+                                advanced charting tools are exactly what
+                                professional traders need."
+                            </p>
+                            <div class="flex text-yellow-400">
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div
+                            class="glass-card p-8 rounded-3xl hover:scale-105 transition-all duration-500 cursor-pointer group"
+                        >
+                            <div class="flex items-center space-x-4 mb-6">
+                                <img
+                                    src="https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100"
+                                    alt="Jennifer Wong"
+                                    class="w-14 h-14 rounded-full object-cover border-2 border-white/20 group-hover:border-emerald-400/50 transition-all duration-300"
+                                />
+                                <div>
+                                    <h4
+                                        class="font-semibold text-white text-lg group-hover:text-emerald-400 transition-colors duration-300"
+                                    >
+                                        Jennifer Wong
+                                    </h4>
+                                    <p class="text-emerald-400">Day Trader</p>
+                                </div>
+                            </div>
+                            <p
+                                class="text-gray-300 leading-relaxed mb-4 group-hover:text-white transition-colors duration-300"
+                            >
+                                "Incredible execution speed and the customer
+                                support is top-notch. Highly recommend for
+                                serious traders."
+                            </p>
+                            <div class="flex text-yellow-400">
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 fill-current"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <polygon
+                                        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                    />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA Section -->
+            <section class="py-24 relative overflow-hidden">
+                <div class="absolute inset-0 glass-card"></div>
+                <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="text-center space-y-8">
+                        <div class="space-y-4">
+                            <h2 class="text-4xl md:text-6xl font-bold">
+                                Ready to Start
+                                <span class="text-emerald-500">Trading</span>?
+                            </h2>
+                            <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                                Join millions of traders who trust PaperTrade.
+                                Get started in minutes with zero commission fees
+                                and advanced trading tools.
+                            </p>
+                        </div>
+
+                        <div
+                            class="flex flex-col sm:flex-row gap-4 justify-center items-center"
+                        >
+                            <button
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white text-lg px-8 py-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center space-x-2"
+                            >
+                                <span>Get Started Free</span>
+                                <svg
+                                    class="w-5 h-5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="m9 18 6-6-6-6" />
+                                </svg>
+                            </button>
+                            <button
+                                class="glass-card border border-blue-500/30 text-lg px-8 py-4 rounded-lg font-semibold text-white transition-all duration-300 hover:scale-105 flex items-center space-x-2"
+                            >
+                                <svg
+                                    class="w-5 h-5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                                    />
+                                    <polyline points="7,10 12,15 17,10" />
+                                    <line x1="12" x2="12" y1="15" y2="3" />
+                                </svg>
+                                <span>Download App</span>
+                            </button>
+                        </div>
+
+                        <div
+                            class="grid md:grid-cols-3 gap-8 pt-12 max-w-4xl mx-auto"
+                        >
+                            <div class="text-center space-y-2">
+                                <div
+                                    class="flex items-center justify-center mb-2"
+                                >
+                                    <svg
+                                        class="w-6 h-6 text-yellow-400 fill-yellow-400"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <polygon
+                                            points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                                        />
+                                    </svg>
+                                </div>
+                                <div class="text-2xl font-bold text-white">
+                                    4.9/5
+                                </div>
+                                <div class="text-sm text-gray-400">
+                                    App Store Rating
+                                </div>
+                            </div>
+
+                            <div class="text-center space-y-2">
+                                <div
+                                    class="flex items-center justify-center mb-2"
+                                >
+                                    <svg
+                                        class="w-6 h-6 text-blue-500"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="5"
+                                            y="2"
+                                            width="14"
+                                            height="20"
+                                            rx="2"
+                                            ry="2"
+                                        />
+                                        <path d="m12 18h0" />
+                                    </svg>
+                                </div>
+                                <div class="text-2xl font-bold text-white">
+                                    2M+
+                                </div>
+                                <div class="text-sm text-gray-400">
+                                    App Downloads
+                                </div>
+                            </div>
+
+                            <div class="text-center space-y-2">
+                                <div
+                                    class="flex items-center justify-center mb-2"
+                                >
+                                    <svg
+                                        class="w-6 h-6 text-emerald-500"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="m9 18 6-6-6-6" />
+                                    </svg>
+                                </div>
+                                <div class="text-2xl font-bold text-white">
+                                    30 sec
+                                </div>
+                                <div class="text-sm text-gray-400">
+                                    Setup Time
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="mt-10 px-4 sm:px-6 lg:px-8 relative z-10">
+                <div
+                    class="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-16 bg-black"
+                >
+                    <div class="grid md:grid-cols-4 gap-8">
+                        <!-- Logo and Description -->
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-2">
+                                <div
+                                    class="w-12 h-12 rounded-lg flex items-center justify-center"
+                                >
+                                    <img src="./logo.png" alt="" />
+                                </div>
+                                <span class="text-xl font-bold text-white"
+                                    >PaperTrade</span
+                                >
+                            </div>
+                            <p class="text-gray-400">
+                                The future of trading is here. Experience
+                                zero-commission trading with advanced security
+                                and real-time analytics.
+                            </p>
+                            <div class="flex space-x-4">
+                                <svg
+                                    class="w-5 h-5 text-gray-400 hover:text-emerald-400 cursor-pointer transition-colors"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 text-gray-400 hover:text-emerald-400 cursor-pointer transition-colors"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 text-gray-400 hover:text-emerald-400 cursor-pointer transition-colors"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"
+                                    />
+                                    <rect x="2" y="9" width="4" height="12" />
+                                    <circle cx="4" cy="4" r="2" />
+                                </svg>
+                                <svg
+                                    class="w-5 h-5 text-gray-400 hover:text-emerald-400 cursor-pointer transition-colors"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                                    />
+                                    <polyline points="22,6 12,13 2,6" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- Company -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-white">
+                                Company
+                            </h3>
+                            <ul class="space-y-2">
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >About Us</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Careers</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Press</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Blog</a
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Support -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-white">
+                                Support
+                            </h3>
+                            <ul class="space-y-2">
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Help Center</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Contact Us</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >API Docs</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Status</a
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Legal -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-white">
+                                Legal
+                            </h3>
+                            <ul class="space-y-2">
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Privacy Policy</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Terms of Service</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Cookie Policy</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        href="#"
+                                        class="text-gray-400 hover:text-emerald-400 transition-colors"
+                                        >Disclosures</a
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div
+                        class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center"
+                    >
+                        <p class="text-gray-400 text-sm">
+                            © 2025 PaperTrade. All rights reserved.
+                        </p>
+                        <p class="text-gray-400 text-sm mt-4 md:mt-0">
+                            Securities trading offered through PaperTrade
+                            Securities LLC, member SIPC.
+                        </p>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <script>
+            // Mouse follower glow effect
+            document.addEventListener("mousemove", function (e) {
+                const glow = document.getElementById("mouseGlow");
+                glow.style.left = e.clientX - 192 + "px";
+                glow.style.top = e.clientY - 192 + "px";
+            });
+
+            // Mobile menu toggle
+            document
+                .getElementById("mobileMenuBtn")
+                .addEventListener("click", function () {
+                    const menuIcon = document.getElementById("menuIcon");
+                    const closeIcon = document.getElementById("closeIcon");
+
+                    if (menuIcon.classList.contains("hidden")) {
+                        menuIcon.classList.remove("hidden");
+                        closeIcon.classList.add("hidden");
+                    } else {
+                        menuIcon.classList.add("hidden");
+                        closeIcon.classList.remove("hidden");
+                    }
+                });
+        </script>
+    </body>
+</html>
