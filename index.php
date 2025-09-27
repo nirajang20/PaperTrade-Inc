@@ -12,7 +12,7 @@
       <div class="container nav">
         <a class="brand" href="index.php" aria-label="PaperTrade home">
           <!-- LOGO ADDED HERE -->
-          <img src="logo-transparent.png" alt="PaperTrade Logo" class="logo-img" />
+          <img src="logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
         <button class="menu-toggle" aria-controls="primary-nav" aria-expanded="false">☰</button>
         <nav id="primary-nav" class="nav-links">
