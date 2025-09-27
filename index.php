@@ -6,6 +6,7 @@
     <title>PaperTrade — Practice Trading with Virtual Money</title>
     <meta name="description" content="Practice trading stocks with real-time simulated data and virtual money. Learn, experiment, and build confidence risk‑free." />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="favicon.png" />
   </head>
   <body>
     <header class="site-header">

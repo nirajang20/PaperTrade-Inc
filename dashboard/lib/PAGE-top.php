@@ -20,7 +20,7 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
   <!-- Font Awesome -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/fontawesome-free/css/all.min.css">
   <!-- Ionicons -->
-  <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+  <link rel="stylesheet" href="<?URL_HOST?>dist/css/ionicons.min.css">
   <!-- Tempusdominus Bootstrap 4 -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
   <!-- iCheck -->
@@ -35,6 +35,9 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/daterangepicker/daterangepicker.css">
   <!-- summernote -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/summernote/summernote-bs4.min.css">
+
+  <!-- favicon   -->
+       <link rel="icon" href="<?=URL_HOST?>dist/img/favicon.png" />
 
     <script>var url = {host:"<?=URL_HOST?>",public:"<?=URL_PUBLIC?>"};</script>
     <script async src="<?=URL_PUBLIC?>admin.js?id=1"></script>

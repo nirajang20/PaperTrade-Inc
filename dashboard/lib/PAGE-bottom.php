@@ -2,7 +2,7 @@
 </div>
   <!-- /.content-wrapper -->
   <footer class="main-footer">
-    <strong>Copyright &copy; <?=date('Y')?> <a href="http://74.208.158.229/">PaperTrade ,Inc</a> | </strong>
+    <strong>Copyright &copy; <?=date('Y')?> <a href="http://74.208.158.229/">PaperTrade Inc</a> | </strong>
     All rights reserved.
     <div class="float-right d-none d-sm-inline-block">
       <b>Version</b> (Dev-Beta)
