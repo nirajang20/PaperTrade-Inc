@@ -1,1 +1,5 @@
+# Ignore specific files
 core.php
+git-cheatsheet.txt
+# Ignore all .log files
+*.log
