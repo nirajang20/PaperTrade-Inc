@@ -10,18 +10,9 @@
   <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href="#home" aria-label="PaperTrade home">
-          <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-            <defs>
-              <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FFB703"/>
-                <stop offset="100%" stop-color="#FB8500"/>
-              </linearGradient>
-            </defs>
-            <circle cx="24" cy="24" r="22" fill="url(#grad)" opacity="0.15"/>
-            <path d="M10 30 L20 18 L27 25 L38 14" fill="none" stroke="url(#grad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>PaperTrade</span>
+        <a class="brand" href="index.php" aria-label="PaperTrade home">
+          <!-- LOGO ADDED HERE -->
+          <img src="logo-transparent.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
         <button class="menu-toggle" aria-controls="primary-nav" aria-expanded="false">☰</button>
         <nav id="primary-nav" class="nav-links">
@@ -29,7 +20,7 @@
           <a href="#how">How it Works</a>
           <a href="#learn">Learn</a>
           <a href="dashboard/index.php" class="btn btn-ghost">Log In</a>
-          <a href="#signup" class="btn btn-primary">Start Trading</a>
+          <a href="#cta" class="btn btn-primary">Start Trading</a>
         </nav>
       </div>
     </header>
@@ -41,13 +32,12 @@
           <h1 id="hero-title">Trade smarter. Risk‑free. Fun.</h1>
           <p class="subhead">Practice buying and selling stocks with live‑like market movement — all with virtual money. Learn by doing, build confidence, and level up your strategy.</p>
           <div class="hero-ctas">
-            <a href="#signup" class="btn btn-primary btn-lg">Start Trading Now</a>
+            <a href="#cta" class="btn btn-primary btn-lg">Start Trading Now</a>
             <a href="#how" class="btn btn-ghost btn-lg">Practice with Virtual Money</a>
           </div>
         </div>
         <div class="hero-visual" aria-hidden="true">
           <div class="device">
-            <div class="device-notch"></div>
             <canvas id="hero-chart" width="360" height="220" aria-hidden="true"></canvas>
             <div class="device-glow"></div>
           </div>
@@ -120,7 +110,7 @@
             <ul class="bullets">
               <li><strong>Readable charts:</strong> Clean visuals with helpful context.</li>
               <li><strong>Simulated fills:</strong> Instant feedback on orders.</li>
-              <li><strong>Performance view:</strong> Equity, P&amp;L, drawdown and more.</li>
+              <li><strong>Performance view:</strong> Equity, P&L, drawdown and more.</li>
             </ul>
             <div class="inline-ctas">
               <a href="#features" class="btn btn-ghost">Explore Features</a>
@@ -132,18 +122,16 @@
         </div>
       </section>
 
-      
-
       <!-- Call to Action / Sign Up -->
       <section id="cta" class="container section reveal">
         <div class="cta-card">
           <h2>Ready to practice with virtual money?</h2>
           <p>Start trading in minutes — no credit card required.</p>
-          <form id="signup" class="signup" action="#" method="post" onsubmit="return false">
+            <form id="signup" class="signup" action="dashboard/login.php" method="get" onsubmit="event.preventDefault(); window.location.href='dashboard/login.php?email=' + encodeURIComponent(document.getElementById('email').value);">
             <label class="sr-only" for="email">Email</label>
             <input id="email" type="email" placeholder="Enter your email" autocomplete="email" required />
             <button class="btn btn-primary" type="submit">Create Free Account</button>
-          </form>
+            </form>
           <small class="disclaimer">This is a learning tool. No real currency is used. Prices are simulated and for educational purposes only.</small>
         </div>
       </section>
@@ -152,17 +140,17 @@
     <footer class="site-footer">
       <div class="container footer-grid">
         <div>
-          <a class="brand" href="#home">
-            <svg width="24" height="24" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 30 L20 18 L27 25 L38 14" fill="none" stroke="#FB8500" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>PaperTrade</span>
+          <a class="brand" href="index.php">
+            <!-- LOGO ADDED HERE -->
+            <img src="logo.png" alt="PaperTrade Logo" class="logo-img-foot" />
           </a>
           <p class="foot-note">Practice stock trading with virtual money. Learn by doing in a safe, playful environment.</p>
         </div>
         <div>
           <h4>Company</h4>
-          <a href="#features">Features</a>
-          <a href="#how">How it Works</a>
-          <a href="#learn">Learn</a>
+          <a href="index.php#features">Features</a>
+          <a href="index.php#how">How it Works</a>
+          <a href="index.php#learn">Learn</a>
         </div>
         <div>
           <h4>Resources</h4>
@@ -172,8 +160,9 @@
         </div>
         <div>
           <h4>Legal</h4>
-          <a href="#">Terms</a>
-          <a href="#">Privacy</a>
+          <!-- LINKS UPDATED -->
+          <a href="terms.php">Terms</a>
+          <a href="privacy.php">Privacy</a>
         </div>
       </div>
       <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only.</div>
@@ -181,4 +170,4 @@
 
     <script src="script.js"></script>
   </body>
-  </html>
+</html>

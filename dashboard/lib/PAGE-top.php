@@ -57,25 +57,107 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
     <!-- Notifications Dropdown -->
     <li class="nav-item dropdown">
       <a class="nav-link" data-toggle="dropdown" href="#">
-        <i class="far fa-bell"></i>
-        <span class="badge badge-warning navbar-badge">3</span>
+      <i class="far fa-bell"></i>
+      <span class="badge badge-warning navbar-badge">4</span>
       </a>
-      <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-        <span class="dropdown-header">3 Notifications</span>
-        <div class="dropdown-divider"></div>
-        <a href="#" class="dropdown-item">
-          <i class="fas fa-envelope mr-2"></i> 1 new message
-          <span class="float-right text-muted text-sm">3 mins</span>
-        </a>
-        <div class="dropdown-divider"></div>
-        <a href="#" class="dropdown-item">
-          <i class="fas fa-exclamation-triangle mr-2"></i> Margin warning
-          <span class="float-right text-muted text-sm">1 hr</span>
-        </a>
-        <div class="dropdown-divider"></div>
-        <a href="#" class="dropdown-item dropdown-footer">See All Notifications</a>
+      <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notifications-container">
+      <span class="dropdown-header">4 Notifications</span>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item notification-item">
+        <div class="notification-message">
+        <i class="fas fa-envelope mr-2"></i> New message from support
+        </div>
+        <div class="notification-actions text-right mt-1">
+        <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i class="fas fa-check-circle"></i></a>
+        <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
+        </div>
+      </div>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item notification-item">
+        <div class="notification-message">
+        <i class="fas fa-exclamation-triangle mr-2"></i> Margin call warning
+        </div>
+        <div class="notification-actions text-right mt-1">
+        <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i class="fas fa-check-circle"></i></a>
+        <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
+        </div>
+      </div>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item notification-item">
+        <div class="notification-message">
+        <i class="fas fa-file-invoice-dollar mr-2"></i> Dividend for MSFT posted 
+        </div>
+        <div class="notification-actions text-right mt-1">
+        <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i class="fas fa-check-circle"></i></a>
+        <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
+        </div>
+      </div>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-item notification-item">
+        <div class="notification-message">
+        <i class="fas fa-chart-line mr-2"></i> GOOGL stock up 5%
+        </div>
+        <div class="notification-actions text-right mt-1">
+        <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i class="fas fa-check-circle"></i></a>
+        <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
+        </div>
+      </div>
+      <div class="dropdown-divider"></div>
       </div>
     </li>
+
+    <style>
+      .notification-item.read .notification-message {
+      opacity: 0.6;
+      }
+      .notification-actions a {
+      text-decoration: none;
+      }
+    </style>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const notificationContainer = document.querySelector('.notifications-container');
+      const notificationBadge = document.querySelector('.navbar-badge');
+      const notificationHeader = document.querySelector('.dropdown-header');
+
+      function updateNotificationCount() {
+      const count = notificationContainer.querySelectorAll('.notification-item').length;
+      notificationBadge.textContent = count;
+      notificationHeader.textContent = `${count} Notifications`;
+      if (count === 0) {
+        notificationBadge.style.display = 'none';
+        notificationHeader.textContent = 'No new notifications';
+      }
+      }
+
+      notificationContainer.addEventListener('click', function (e) {
+      // Find the clicked action link
+      const action = e.target.closest('.notification-read, .notification-delete');
+      if (!action) return;
+
+      e.preventDefault();
+      const notificationItem = action.closest('.notification-item');
+      const divider = notificationItem.previousElementSibling;
+
+      // Handle "Read" action
+      if (action.classList.contains('notification-read')) {
+        notificationItem.classList.toggle('read');
+        action.classList.toggle('text-muted');
+        action.classList.toggle('text-success');
+      }
+
+      // Handle "Delete" action
+      if (action.classList.contains('notification-delete')) {
+        notificationItem.remove();
+        if (divider && divider.classList.contains('dropdown-divider')) {
+        divider.remove();
+        }
+        updateNotificationCount();
+      }
+      });
+    });
+    </script>
 
     <!-- User Profile Dropdown -->
     <li class="nav-item dropdown">
@@ -109,8 +191,8 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
     <a href="index3.html" class="brand-link">
-      <img src="<?=URL_HOST?>dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
-      <span class="brand-text font-weight-light">AdminLTE 3</span>
+      <!-- <img src="<?=URL_HOST?>dist/img/logo-horizontal.png" alt="PaperTrade Logo" class="brand-image img-circle elevation-3" style="opacity: .8"> -->
+      <span class="brand-text font-weight-light"><img src="<?=URL_HOST?>dist/img/logo-horizontal.png" height="40%" width="100%"></span>
     </a>
 
     <!-- Sidebar -->
