@@ -1,3 +1,4 @@
+
 // Utility: clamp
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -25,10 +26,7 @@ const io = new IntersectionObserver((entries) => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-// Build ticker content from live quotes
-
-
-// Simple animated line charts for hero and learn sections
+// --- Line Chart with Realistic Movement ---
 function animateChart(canvas, options = {}) {
   if (!canvas) return;
   const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -45,15 +43,12 @@ function animateChart(canvas, options = {}) {
   const w = width - pad * 2;
   const h = height - pad * 2;
 
-  // MODIFIED: Generate points with a stronger upward trend
+  // Generate initial points with mild fluctuations
   const points = new Array(60).fill(0).map((_, i) => {
     const x = pad + (i / 59) * w;
-    // Reduced noise for a smoother, clearer trend
-    const noise = Math.sin(i * 0.4) * 4 + Math.cos(i * 0.2) * 3;
-    // Increased the trend multiplier for a steeper upward slope
-    const trend = i * 1.6;
-    // Start the chart lower (h * 0.2) to give it more room to grow
-    const y = pad + h - clamp(h * 0.2 + trend + noise, 0, h);
+    const base = h * 0.5; // start in middle
+    const noise = Math.sin(i * 0.3) * 8;
+    const y = pad + h - clamp(base + noise, 0, h);
     return { x, y };
   });
 
@@ -80,24 +75,27 @@ function animateChart(canvas, options = {}) {
     }
     ctx.globalAlpha = 1;
 
-    // line
+    // line with smoothing
     ctx.beginPath();
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 10;
-    
+
     let maxIndex = Math.floor(points.length * progress);
     maxIndex = clamp(maxIndex, 2, points.length);
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < maxIndex; i++) {
-      const p = points[i];
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0; // reset shadow
 
-    // fill under
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < maxIndex - 2; i++) {
+      const xc = (points[i].x + points[i + 1].x) / 2;
+      const yc = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+    }
+    ctx.lineTo(points[maxIndex - 1].x, points[maxIndex - 1].y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // fill under curve
     ctx.lineTo(points[maxIndex - 1].x, pad + h);
     ctx.lineTo(points[0].x, pad + h);
     ctx.closePath();
@@ -107,7 +105,7 @@ function animateChart(canvas, options = {}) {
     ctx.fillStyle = grd;
     ctx.fill();
 
-    // last point pulse
+    // pulse on last point
     const last = points[maxIndex - 1];
     pulseSize += pulseSpeed;
     if (pulseSize > 8 || pulseSize < 2) pulseSpeed *= -1;
@@ -126,39 +124,39 @@ function animateChart(canvas, options = {}) {
     const progress = clamp((now - t) / dur, 0, 1);
     draw(progress);
     if (progress < 1) requestAnimationFrame(tick);
-    else requestAnimationFrame(liveTick); // Start live updates after initial draw
+    else requestAnimationFrame(liveTick);
   }
-  
+
   function liveTick() {
-      draw(1);
-      requestAnimationFrame(liveTick);
+    draw(1);
+    requestAnimationFrame(liveTick);
   }
 
   requestAnimationFrame(tick);
 
-  // MODIFIED: Live updates also trend upwards
+  // --- Live random fluctuations ---
   setInterval(() => {
-    // shift left
     points.shift();
-    const i = points.length;
     const lastX = pad + w;
     const prevY = points[points.length - 1].y;
-    // Add small random volatility
-    const noise = (Math.random() - 0.5) * 7;
-    // Add a consistent upward push (a negative value since Y is calculated from the top)
-    const upwardPush = 2.5 + Math.random() * 2;
-    // Calculate the next point, ensuring it trends upwards
-    const nextY = clamp(prevY - upwardPush + noise, pad + 6, pad + h - 6);
+
+    // Random walk
+    const volatility = 5;  // higher = wilder
+    const drift = 0;       // set positive/negative for bias
+    const noise = (Math.random() - 0.5) * volatility;
+    const nextY = clamp(prevY + noise - drift, pad + 6, pad + h - 6);
+
     points.push({ x: lastX, y: nextY });
-    // move all points left
+
+    // Shift everything left
     for (const p of points) p.x -= w / 59;
-  }, 1400);
+  }, 1200);
 }
 
 animateChart(document.getElementById('hero-chart'));
 animateChart(document.getElementById('learn-chart'), { duration: 1600, color: '#7e30e1' });
 
-// Smooth scroll for same-page anchors
+// Smooth scroll for anchors
 document.querySelectorAll('a[href^="#"]').forEach((a) => {
   a.addEventListener('click', (e) => {
     const id = a.getAttribute('href');
@@ -167,7 +165,6 @@ document.querySelectorAll('a[href^="#"]').forEach((a) => {
     if (el) {
       e.preventDefault();
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // close mobile nav
       nav?.classList.remove('open');
       toggle?.setAttribute('aria-expanded', 'false');
     }
@@ -194,3 +191,4 @@ document.querySelector('#signup')?.addEventListener('submit', (e) => {
     }, 1800);
   }, 900);
 });
+

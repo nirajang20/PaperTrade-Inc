@@ -169,7 +169,7 @@
       <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only.</div>
     </footer>
 
-    <script src="script.js"></script>
     <script src="script/dashboard-stocks.js"></script>
+    <script src="script.js"></script>
   </body>
 </html>
