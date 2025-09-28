@@ -25,46 +25,8 @@ const io = new IntersectionObserver((entries) => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-// Build ticker content (fake but lively)
-const symbols = [
-  'AAPL','MSFT','NVDA','AMZN','GOOGL','TSLA','META','AMD','NFLX','SHOP',
-  'COIN','PLTR','UBER','DIS','SPOT','SNOW','SQ','ABNB','ADBE','CRM'
-];
-function makeTick(sym) {
-  const base = 20 + Math.random() * 600;
-  const price = (base + Math.random() * 5).toFixed(2);
-  const delta = (Math.random() * 2 - 1).toFixed(2);
-  const pos = Number(delta) >= 0;
-  const el = document.createElement('div');
-  el.className = 'tick';
-  el.innerHTML = `<span class="sym">${sym}</span><span class="price">$${price}</span><span class="delta ${pos ? 'pos' : 'neg'}">${pos ? '▲' : '▼'} ${Math.abs(delta)}%</span>`;
-  return el;
-}
-const track = document.getElementById('ticker-track');
-if (track) {
-  const fill = () => {
-    track.innerHTML = '';
-    const row = [...symbols, ...symbols, ...symbols];
-    row.forEach((s) => track.appendChild(makeTick(s)));
-  };
-  fill();
-  // Periodically nudge numbers so it feels live
-  setInterval(() => {
-    track.querySelectorAll('.tick').forEach((el) => {
-      const priceEl = el.querySelector('.price');
-      const deltaEl = el.querySelector('.delta');
-      const cur = parseFloat(priceEl.textContent.replace(/[$,]/g, ''));
-      const diff = (Math.random() - 0.5) * 0.6;
-      const next = clamp(cur + diff, 1, 2000);
-      const pct = ((next - cur) / cur) * 100;
-      const pos = pct >= 0;
-      priceEl.textContent = `$${next.toFixed(2)}`;
-      deltaEl.classList.toggle('pos', pos);
-      deltaEl.classList.toggle('neg', !pos);
-      deltaEl.textContent = `${pos ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`;
-    });
-  }, 1800);
-}
+// Build ticker content from live quotes
+
 
 // Simple animated line charts for hero and learn sections
 function animateChart(canvas, options = {}) {

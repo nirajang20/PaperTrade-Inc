@@ -170,5 +170,6 @@
     </footer>
 
     <script src="script.js"></script>
+    <script src="script/dashboard-stocks.js"></script>
   </body>
 </html>
