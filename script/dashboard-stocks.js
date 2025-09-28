@@ -1,6 +1,6 @@
 const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM'];
-const tickerEndpoint = 'script/currentprice.php';
-const pollIntervalMs = 3000;
+const tickerEndpoint = 'http://74.208.158.229/stock-api/currentprice';
+const pollIntervalMs = 10000;
 const track = document.getElementById('ticker-track');
 
 if (track) {
@@ -37,7 +37,7 @@ if (track) {
     // Fetch from backend PHP instead of generating random prices
     const fetchQuotes = async () => {
         try {
-            const url = `${tickerEndpoint}?stock=${symbols.join(',')}`;
+            const url = `${tickerEndpoint}?symbols=${symbols.join(',')}`;
             const res = await fetch(url);
             const data = await res.json(); // array of {symbol, price, date, time}
             
