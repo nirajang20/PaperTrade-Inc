@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PaperTrade — Practice Trading with Virtual Money</title>
     <meta name="description" content="Practice trading stocks with real-time simulated data and virtual money. Learn, experiment, and build confidence risk‑free." />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="css/styles.css" />
     <link rel="icon" href="img/favicon.png" />
   </head>
   <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href="index.php" aria-label="PaperTrade home">
+        <a class="brand" href="http://74.208.158.229/" aria-label="PaperTrade home">
           <!-- LOGO ADDED HERE -->
           <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
@@ -166,10 +166,10 @@
           <a href="privacy.php">Privacy</a>
         </div>
       </div>
-      <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only.</div>
+      <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only | All Rights Reserved.</div>
     </footer>
 
-    <script src="script/dashboard-stocks.js"></script>
-    <script src="script.js"></script>
+    <script src="js/dashboard-stocks.js"></script>
+    <script src="js/script.js"></script>
   </body>
 </html>

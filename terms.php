@@ -9,13 +9,13 @@
 <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href="index.html" aria-label="PaperTrade home">
-          <img src="logo-transparent.png" alt="PaperTrade Logo" class="logo-img" />
+        <a class="brand" href="http://74.208.158.229/" aria-label="PaperTrade home">
+          <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
         <nav id="primary-nav" class="nav-links">
-          <a href="index.html#features">Features</a>
-          <a href="index.html#how">How it Works</a>
-          <a href="index.html#learn">Learn</a>
+          <a href="http://74.208.158.229/#features">Features</a>
+          <a href="http://74.208.158.229/#how">How it Works</a>
+          <a href="http://74.208.158.229/#learn">Learn</a>
         </nav>
       </div>
     </header>
@@ -46,7 +46,7 @@
     </main>
 
     <footer class="site-footer">
-      <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only.</div>
+      <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only | All Right Reserved.</div>
     </footer>
 
     <script>document.getElementById('year').textContent = new Date().getFullYear();</script>

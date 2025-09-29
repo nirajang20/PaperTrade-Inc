@@ -1,4 +1,4 @@
-const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM', '^GSPC'];
+const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM', '^GSPC', 'BTC', 'ETH'];
 const track = document.getElementById('ticker-track');
 
 if (track) {
