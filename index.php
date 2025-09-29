@@ -6,14 +6,14 @@
     <title>PaperTrade — Practice Trading with Virtual Money</title>
     <meta name="description" content="Practice trading stocks with real-time simulated data and virtual money. Learn, experiment, and build confidence risk‑free." />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="icon" href="favicon.png" />
+    <link rel="icon" href="img/favicon.png" />
   </head>
   <body>
     <header class="site-header">
       <div class="container nav">
         <a class="brand" href="index.php" aria-label="PaperTrade home">
           <!-- LOGO ADDED HERE -->
-          <img src="logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
+          <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
         <button class="menu-toggle" aria-controls="primary-nav" aria-expanded="false">☰</button>
         <nav id="primary-nav" class="nav-links">
@@ -143,7 +143,7 @@
         <div>
           <a class="brand" href="index.php">
             <!-- LOGO ADDED HERE -->
-            <img src="logo.png" alt="PaperTrade Logo" class="logo-img-foot" />
+            <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img-foot" />
           </a>
           <p class="foot-note">Practice stock trading with virtual money. Learn by doing in a safe, playful environment.</p>
         </div>
