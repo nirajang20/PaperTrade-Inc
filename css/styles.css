@@ -107,10 +107,31 @@ body::before {
 
 /* Ticker */
 .ticker { position: relative; border-block: 1px solid var(--border); overflow: hidden; background: rgba(10, 7, 26, 0.4); backdrop-filter: blur(4px); }
-.ticker-track { display: flex; gap: 26px; padding: 10px 0; animation: scroll 30s linear infinite; will-change: transform; }
+.ticker-track {
+  display: flex;
+  gap: 26px;
+  padding: 10px 0;
+  width: max-content;
+  animation: ticker-scroll var(--ticker-duration, 30s) linear infinite;
+  will-change: transform;
+}
 .ticker:hover .ticker-track { animation-play-state: paused; }
-@keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.tick { display: inline-flex; align-items: baseline; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); white-space: nowrap; transition: background .2s; }
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.tick {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .2s;
+}
 .tick:hover { background: rgba(126, 48, 225, 0.2); }
 .tick .sym { font-weight: 700; letter-spacing: 0.02em; color: var(--primary); }
 .tick .price { color: var(--text); opacity: 0.9; }

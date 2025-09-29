@@ -1,4 +1,4 @@
-const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM', '^GSPC', 'BTC', 'ETH'];
+const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM', '^GSPC', 'BTC-USD', 'ETH-USD'];
 const track = document.getElementById('ticker-track');
 
 if (track) {
@@ -37,10 +37,36 @@ if (track) {
         return el;
     };
 
+    const restartAnimation = () => {
+        track.style.animation = 'none';
+        // Force reflow so the browser picks up the fresh animation cycle
+        void track.offsetWidth;
+        track.style.removeProperty('animation');
+    };
+
+    const applyTickerTiming = () => {
+        const baseWidth = track.scrollWidth / 2;
+        if (!baseWidth) {
+            track.style.removeProperty('--ticker-duration');
+            restartAnimation();
+            return;
+        }
+
+        const SPEED_PX_PER_SEC = 55;
+        const MIN_DURATION = 20; // keep a relaxed pace when there are few items
+        const duration = Math.max(baseWidth / SPEED_PX_PER_SEC, MIN_DURATION);
+        track.style.setProperty('--ticker-duration', `${duration.toFixed(2)}s`);
+        restartAnimation();
+    };
+
     const render = (entries) => {
-        const row = [...entries, ...entries, ...entries]; // repeat for scrolling ticker
         track.innerHTML = '';
-        row.forEach((entry) => track.appendChild(makeTick(entry)));
+
+        const baseNodes = entries.map((entry) => makeTick(entry));
+        baseNodes.forEach((node) => track.appendChild(node));
+        baseNodes.forEach((node) => track.appendChild(node.cloneNode(true)));
+
+        applyTickerTiming();
     };
 
     const fetchQuotes = async () => {
