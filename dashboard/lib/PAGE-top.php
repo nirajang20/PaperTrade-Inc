@@ -57,6 +57,13 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
 
   <!-- Right navbar links -->
   <ul class="navbar-nav ml-auto">
+    <!-- Dark/Light Mode Toggle -->
+    <li class="nav-item">
+      <a class="nav-link" id="dark-mode-toggle" href="#" role="button">
+        <i class="fas fa-moon"></i>
+      </a>
+    </li>
+
     <!-- Notifications Dropdown -->
     <li class="nav-item dropdown">
       <a class="nav-link" data-toggle="dropdown" href="#">
@@ -120,44 +127,71 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {
+      // Dark Mode Toggle
+      const darkModeToggle = document.getElementById('dark-mode-toggle');
+      const body = document.body;
+      const darkModeIcon = darkModeToggle.querySelector('i');
+
+      const setTheme = (theme) => {
+        if (theme === 'dark') {
+          body.classList.add('dark-mode');
+          darkModeIcon.classList.remove('fa-moon');
+          darkModeIcon.classList.add('fa-sun');
+          localStorage.setItem('theme', 'dark');
+        } else {
+          body.classList.remove('dark-mode');
+          darkModeIcon.classList.remove('fa-sun');
+          darkModeIcon.classList.add('fa-moon');
+          localStorage.setItem('theme', 'light');
+        }
+      };
+
+      darkModeToggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        const currentTheme = body.classList.contains('dark-mode') ? 'light' : 'dark';
+        setTheme(currentTheme);
+      });
+
+      // Apply saved theme on load
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      setTheme(savedTheme);
+
+      // Notifications
       const notificationContainer = document.querySelector('.notifications-container');
       const notificationBadge = document.querySelector('.navbar-badge');
       const notificationHeader = document.querySelector('.dropdown-header');
 
       function updateNotificationCount() {
-      const count = notificationContainer.querySelectorAll('.notification-item').length;
-      notificationBadge.textContent = count;
-      notificationHeader.textContent = `${count} Notifications`;
-      if (count === 0) {
-        notificationBadge.style.display = 'none';
-        notificationHeader.textContent = 'No new notifications';
-      }
+        const count = notificationContainer.querySelectorAll('.notification-item').length;
+        notificationBadge.textContent = count;
+        notificationHeader.textContent = `${count} Notifications`;
+        if (count === 0) {
+          notificationBadge.style.display = 'none';
+          notificationHeader.textContent = 'No new notifications';
+        }
       }
 
       notificationContainer.addEventListener('click', function (e) {
-      // Find the clicked action link
-      const action = e.target.closest('.notification-read, .notification-delete');
-      if (!action) return;
+        const action = e.target.closest('.notification-read, .notification-delete');
+        if (!action) return;
 
-      e.preventDefault();
-      const notificationItem = action.closest('.notification-item');
-      const divider = notificationItem.previousElementSibling;
+        e.preventDefault();
+        const notificationItem = action.closest('.notification-item');
+        const divider = notificationItem.previousElementSibling;
 
-      // Handle "Read" action
-      if (action.classList.contains('notification-read')) {
-        notificationItem.classList.toggle('read');
-        action.classList.toggle('text-muted');
-        action.classList.toggle('text-success');
-      }
-
-      // Handle "Delete" action
-      if (action.classList.contains('notification-delete')) {
-        notificationItem.remove();
-        if (divider && divider.classList.contains('dropdown-divider')) {
-        divider.remove();
+        if (action.classList.contains('notification-read')) {
+          notificationItem.classList.toggle('read');
+          action.classList.toggle('text-muted');
+          action.classList.toggle('text-success');
         }
-        updateNotificationCount();
-      }
+
+        if (action.classList.contains('notification-delete')) {
+          notificationItem.remove();
+          if (divider && divider.classList.contains('dropdown-divider')) {
+            divider.remove();
+          }
+          updateNotificationCount();
+        }
       });
     });
     </script>
@@ -184,6 +218,7 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
       </div>
     </li>
   </ul>
+
 </nav>
 
     <?php } ?>
