@@ -10,31 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # Step 2: Revert protected files if someone pushed them
-      - name: Revert protected files if modified
-        run: |
-          protected_files=("core.php" "LIB-database.php")
-          changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
-
-          for f in "${protected_files[@]}"; do
-            if echo "$changed_files" | grep -q "^$f$"; then
-              echo "⚠️ $f was modified, reverting..."
-              git checkout HEAD~1 -- "$f"
-              git config user.name "github-actions"
-              git config user.email "actions@github.com"
-              git commit -am "🔒 Reverted unauthorized change to $f"
-              git push origin main
-              exit 0   # stop here; a new run will trigger from the revert
-            fi
-          done
-
-      # Step 3: Deploy to VPS
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -45,28 +25,17 @@ jobs:
             set -e
             cd /var/www/html
 
-            echo "📂 Directory: $(pwd)"
-            echo "🔎 Commit before deploy:"
-            git log -1 --oneline || echo "No commits yet"
+            echo "📂 Backup protected files..."
+            cp dashboard/lib/Core.php /tmp/Core.php.bak || true
+            cp dashboard/lib/LIB-database.php /tmp/LIB-database.php.bak || true
 
-            echo "🚀 Fetching and updating main branch..."
+            echo "🚀 Deploying latest code..."
             git fetch origin main
-            git checkout -B main origin/main
+            git reset --hard origin/main
             git clean -fd
 
-            # Restore VPS copies of protected files
-            if [ -f core.php ]; then
-              echo "🔒 Preserving core.php"
-              git checkout HEAD~1 -- core.php || true
-            fi
+            echo "🔒 Restoring protected files..."
+            cp /tmp/Core.php.bak dashboard/lib/Core.php || true
+            cp /tmp/LIB-database.php.bak dashboard/lib/LIB-database.php || true
 
-            if [ -f LIB-database.php ]; then
-              echo "🔒 Preserving LIB-database.php"
-              git checkout HEAD~1 -- LIB-database.php || true
-            fi
-
-            echo "✅ Deployment done"
-            echo "🔎 Commit after deploy:"
-            git log -1 --oneline
-            echo "📄 Last lines of test-db.php:"
-            tail -n 3 test-db.php
+            echo "✅ Deployment done (Core.php & LIB-database.php preserved)"
