@@ -5,8 +5,8 @@ error_reporting(E_ALL & ~E_NOTICE);
 ini_set("display_errors", 1);
 
 // (B) DATABASE SETTINGS
-define("DB_HOST", "127.0.0.1"); // must be 127.0.0.1, not localhost
-define("DB_PORT", 3307);        // tunnel port
+define("DB_HOST", "localhost"); // must be 127.0.0.1, not localhost
+define("DB_PORT", 3306);        // tunnel port
 define("DB_NAME", "trade");
 define("DB_CHARSET", "utf8");
 define("DB_USER", "trade_user");
