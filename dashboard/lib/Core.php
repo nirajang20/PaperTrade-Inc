@@ -8,10 +8,10 @@ ini_set("display_errors", 1);
 
 // (B) DATABASE SETTINGS - CHANGE TO YOUR OWN
 define("DB_HOST", "localhost");
-define("DB_NAME", "on");
+define("DB_NAME", "trade");
 define("DB_CHARSET", "utf8");
-define("DB_USER", "root");
-define("DB_PASSWORD", "");
+define("DB_USER", "trade_user");
+define("DB_PASSWORD", "trade_user");
 $conn = mysqli_connect(DB_HOST,DB_USER,DB_PASSWORD,DB_NAME);
 
 // (D) URL
