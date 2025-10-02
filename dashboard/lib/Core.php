@@ -17,7 +17,7 @@ define("DB_PASSWORD", "trade_user");
 $conn = mysqli_connect("127.0.0.1", "trade_user", "trade_user", "trade", 3307);
 
 // (D) URL
-define("URL_HOST", "http://localhost/trade/dashboard/");
+define("URL_HOST", "http://74.208.158.229/dashboard/");
 define("URL_PUBLIC", URL_HOST . "public/");
 
 // (E) FILE PATHS
