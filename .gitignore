@@ -1,5 +1,2 @@
-# Local-only config files
-core.php
-LIB-database.php
-core.php
-LIB-database.php
+dashboard/Core.php
+dashboard/lib/LIB-database.php
