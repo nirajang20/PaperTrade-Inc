@@ -1,23 +1,60 @@
-- name: Deploy to VPS
-  uses: appleboy/ssh-action@v0.1.10
-  with:
-    host: 74.208.158.229
-    username: root
-    key: ${{ secrets.VPS_SSH_KEY }}
-    script: |
-      set -e
-      cd /var/www/html || exit 1
-      echo "📂 Directory: $(pwd)"
-      echo "🔎 Commit before deploy:"
-      git log -1 --oneline || echo "No commits yet"
+name: Auto Deploy to VPS (Preserve Config Files)
 
-      echo "🚀 Running git fetch + checkout"
-      git fetch origin main
-      git checkout -B main origin/main
-      git clean -fd
+on:
+  push:
+    branches:
+      - main
 
-      echo "✅ Deployment done"
-      echo "🔎 Commit after deploy:"
-      git log -1 --oneline
-      echo "📄 Last lines of test-db.php:"
-      tail -n 3 test-db.php
+jobs:
+  protect-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # full history for rollback check
+
+      # Step 1: Protect core.php & LIB-database.php
+      - name: Revert protected files if modified
+        run: |
+          protected_files=("core.php" "LIB-database.php")
+          changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
+
+          for f in "${protected_files[@]}"; do
+            if echo "$changed_files" | grep -q "^$f$"; then
+              echo "⚠️ $f was modified, reverting..."
+              git checkout HEAD~1 -- "$f"
+              git config user.name "github-actions"
+              git config user.email "actions@github.com"
+              git commit -am "🔒 Reverted unauthorized change to $f"
+              git push origin main
+              exit 0   # stop this run, new run will start after push
+            fi
+          done
+
+      # Step 2: Deploy to VPS
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: 74.208.158.229
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/html || exit 1
+
+            echo "📂 Directory: $(pwd)"
+            echo "🔎 Commit before deploy:"
+            git log -1 --oneline || echo "No commits yet"
+
+            echo "🚀 Running git fetch + checkout"
+            git fetch origin main
+            git checkout -B main origin/main
+            git clean -fd
+
+            echo "✅ Deployment done"
+            echo "🔎 Commit after deploy:"
+            git log -1 --oneline
+            echo "📄 Last lines of test-db.php:"
+            tail -n 3 test-db.php
