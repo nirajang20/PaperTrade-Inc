@@ -10,12 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   # full history needed to revert files
+          fetch-depth: 0
 
-      # Step 1: Protect core.php & LIB-database.php in GitHub repo
+      # Step 2: Revert protected files if someone pushed them
       - name: Revert protected files if modified
         run: |
           protected_files=("core.php" "LIB-database.php")
@@ -29,11 +30,11 @@ jobs:
               git config user.email "actions@github.com"
               git commit -am "🔒 Reverted unauthorized change to $f"
               git push origin main
-              exit 0   # stop here; a new workflow run will start after revert commit
+              exit 0   # stop here; a new run will trigger from the revert
             fi
           done
 
-      # Step 2: Deploy to VPS but preserve configs
+      # Step 3: Deploy to VPS
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -45,28 +46,27 @@ jobs:
             cd /var/www/html
 
             echo "📂 Directory: $(pwd)"
-
-            # Backup protected files before deploy
-            for f in core.php LIB-database.php; do
-              if [ -f "$f" ]; then
-                cp "$f" "/tmp/$f.bak"
-                echo "📦 Backed up $f"
-              fi
-            done
+            echo "🔎 Commit before deploy:"
+            git log -1 --oneline || echo "No commits yet"
 
             echo "🚀 Fetching and updating main branch..."
             git fetch origin main
             git checkout -B main origin/main
             git clean -fd
 
-            # Restore protected files
-            for f in core.php LIB-database.php; do
-              if [ -f "/tmp/$f.bak" ]; then
-                mv "/tmp/$f.bak" "$f"
-                echo "🔒 Restored $f (preserved config)"
-              fi
-            done
+            # Restore VPS copies of protected files
+            if [ -f core.php ]; then
+              echo "🔒 Preserving core.php"
+              git checkout HEAD~1 -- core.php || true
+            fi
+
+            if [ -f LIB-database.php ]; then
+              echo "🔒 Preserving LIB-database.php"
+              git checkout HEAD~1 -- LIB-database.php || true
+            fi
 
             echo "✅ Deployment done"
             echo "🔎 Commit after deploy:"
             git log -1 --oneline
+            echo "📄 Last lines of test-db.php:"
+            tail -n 3 test-db.php
