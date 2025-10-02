@@ -13,22 +13,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # full history for rollback check
 
-      # Step 1: Revert changes to protected files if modified
-      - name: Ensure core.php & LIB-database.php stay frozen
+      # Step 1: Protect core.php & LIB-database.php
+      - name: Revert protected files if modified
         run: |
           protected_files=("core.php" "LIB-database.php")
           changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
 
           for f in "${protected_files[@]}"; do
             if echo "$changed_files" | grep -q "^$f$"; then
-              echo "⚠️ $f was modified, reverting to repo version..."
+              echo "⚠️ $f was modified, reverting..."
               git checkout HEAD~1 -- "$f"
               git config user.name "github-actions"
               git config user.email "actions@github.com"
               git commit -am "🔒 Reverted unauthorized change to $f"
               git push origin main
+              exit 0   # stop this run, new run will start after push
             fi
           done
 
