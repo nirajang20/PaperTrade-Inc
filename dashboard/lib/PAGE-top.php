@@ -267,7 +267,7 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
       </a>
       <ul class="nav nav-treeview">
         <li class="nav-item"><a href="<?=URL_HOST?>trading/buy.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Buy Stocks</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/reminder.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Sell Stocks</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>trading/reminder.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Reminder</p></a></li>
         <li class="nav-item"><a href="<?=URL_HOST?>search.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Search Stocks</p></a></li>
         <li class="nav-item"><a href="<?=URL_HOST?>orders.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Orders</p></a></li>
       </ul>

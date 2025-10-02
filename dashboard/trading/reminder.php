@@ -1,5 +1,5 @@
 <?php
-require "lib/Core.php";
+require "../lib/Core.php";
 require PATH_LIB . "PAGE-top.php"; ?>
 
 
