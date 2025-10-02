@@ -26,3 +26,4 @@ define("PATH_BASE", dirname(PATH_LIB) . DIRECTORY_SEPARATOR);
 session_start();
 
 //ssh -fN -L 3307:127.0.0.1:3306 root@74.208.158.229 => for ssh tunnel mysql
+// user your own name and password instead of root
