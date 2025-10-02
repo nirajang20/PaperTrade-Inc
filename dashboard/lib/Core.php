@@ -1,20 +1,18 @@
 <?php
 
-// (A) ERROR HANDLING
+// (A) ERROR HANDLING - CHANGE TO YOUR OWN
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set("display_errors", 1);
+// ini_set("log_errors", 1);
+// ini_set("error_log", "PATH/error.log");
 
-// (B) DATABASE SETTINGS
-define("DB_HOST", "localhost"); // must be 127.0.0.1, not localhost
-define("DB_PORT", 3306);        // tunnel port
-define("DB_NAME", "trade");
+// (B) DATABASE SETTINGS - CHANGE TO YOUR OWN
+define("DB_HOST", "localhost");
+define("DB_NAME", "on");
 define("DB_CHARSET", "utf8");
-define("DB_USER", "trade_user");
-define("DB_PASSWORD", "trade_user");
-
-
-// (C) CONNECT
-$conn = mysqli_connect("db_host", "DB_USER", "DB_PASSWORD", "DB_NAME", DB_PORT);
+define("DB_USER", "root");
+define("DB_PASSWORD", "");
+$conn = mysqli_connect(DB_HOST,DB_USER,DB_PASSWORD,DB_NAME);
 
 // (D) URL
 define("URL_HOST", "http://74.208.158.229/dashboard/");
