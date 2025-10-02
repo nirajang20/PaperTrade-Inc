@@ -3,7 +3,7 @@ name: Auto Deploy to VPS
 on:
   push:
     branches:
-      - main   # Only trigger deploy when pushing to main branch
+      - main   # Trigger only when pushing to main branch
 
 jobs:
   deploy:
