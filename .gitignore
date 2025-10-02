@@ -1,6 +1,3 @@
-# Ignore specific files
-git-cheatsheet.txt
+# Local-only config files
 core.php
 LIB-database.php
-# Ignore all .log files
-*.log
