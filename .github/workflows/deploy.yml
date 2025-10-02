@@ -1,0 +1,33 @@
+name: Auto Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main   # Trigger only when pushing to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: 74.208.158.229
+          username: root
+          key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACAlYXvuy6XeVKPsuVzdlVF61jxNlB5iLS7m13YNyn0lSgAAAJjB4rf7weK3
++wAAAAtzc2gtZWQyNTUxOQAAACAlYXvuy6XeVKPsuVzdlVF61jxNlB5iLS7m13YNyn0lSg
+AAAEAdYIGvmdURQoxTMoLMqrphrR9bETagd38UF1z9eXmHGSVhe+7Lpd5Uo+y5XN2VUXrW
+PE2UHmItLubXdg3KfSVKAAAAEWRlcGxveUBwYXBlcnRyYWRlAQIDBA==
+-----END OPENSSH PRIVATE KEY-----
+          script: |
+            cd /var/www/html
+            git fetch origin
+            git reset --hard origin/main
+            echo "✅ Deployment to /var/www/html completed"
