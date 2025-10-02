@@ -1,4 +1,6 @@
 # Ignore specific files
 git-cheatsheet.txt
+core.php
+LIB-database.php
 # Ignore all .log files
 *.log
