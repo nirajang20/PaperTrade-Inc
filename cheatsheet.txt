@@ -1,0 +1,101 @@
+=============================
+ Git + MySQL SSH Tunnel Guide
+=============================
+
+VPS IP: 74.208.158.229
+Repo Path: /var/repo/trade.git
+
+--------------------------------------------
+ SSH Tunnel for MySQL
+--------------------------------------------
+# Run this on your local machine to connect local port 3307 -> VPS MySQL (3306)
+ssh -fN -L 3307:127.0.0.1:3306 root@74.208.158.229
+
+# Then connect MySQL locally:
+mysql -h 127.0.0.1 -P 3307 -u <dbuser> -p
+
+--------------------------------------------
+ ROOT (admin, can push to main)
+--------------------------------------------
+git clone root@74.208.158.229:/var/repo/trade.git
+cd trade
+git checkout main
+git fetch origin
+git pull origin main
+# Make changes
+git add .
+git commit -m "update from root"
+git push origin main
+git branch -a
+git log --oneline
+git diff origin/main..origin/main
+
+--------------------------------------------
+ RIKESH (only works on rikesh-branch)
+--------------------------------------------
+git clone rikesh@74.208.158.229:/var/repo/trade.git
+cd trade
+git checkout rikesh-branch
+git fetch origin
+git pull origin rikesh-branch
+# Make changes
+git add .
+git commit -m "work by rikesh"
+git push origin rikesh-branch
+git branch -a
+git log --oneline
+git diff origin/main..origin/rikesh-branch
+git diff --stat origin/main..origin/rikesh-branch
+
+--------------------------------------------
+ PRABIN (only works on prabin-branch)
+--------------------------------------------
+git clone prabin@74.208.158.229:/var/repo/trade.git
+cd trade
+git checkout prabin-branch
+git fetch origin
+git pull origin prabin-branch
+# Make changes
+git add .
+git commit -m "work by prabin"
+git push origin prabin-branch
+git branch -a
+git log --oneline
+git diff origin/main..origin/prabin-branch
+git diff --stat origin/main..origin/prabin-branch
+
+--------------------------------------------
+ RISHIK (only works on rishik-branch)
+--------------------------------------------
+git clone rishik@74.208.158.229:/var/repo/trade.git
+cd trade
+git checkout rishik-branch
+git fetch origin
+git pull origin rishik-branch
+# Make changes
+git add .
+git commit -m "work by rishik"
+git push origin rishik-branch
+git branch -a
+git log --oneline
+git diff origin/main..origin/rishik-branch
+git diff --stat origin/main..origin/rishik-branch
+
+--------------------------------------------
+ ASHISH (only works on ashish-branch)
+--------------------------------------------
+git clone ashish@74.208.158.229:/var/repo/trade.git
+cd trade
+git checkout ashish-branch
+git fetch origin
+git pull origin ashish-branch
+# Make changes
+git add .
+git commit -m "work by ashish"
+git push origin ashish-branch
+git branch -a
+git log --oneline
+git diff origin/main..origin/ashish-branch
+git diff --stat origin/main..origin/ashish-branch
+
+
