@@ -1,37 +1,60 @@
-name: Auto Deploy to VPS via Bare Repo
+name: Auto Deploy to VPS (Preserve Config Files)
 
 on:
   push:
     branches:
-      - main   # only deploy when pushing to main
+      - main
 
 jobs:
-  deploy:
+  protect-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # full history needed to revert files
 
-      - name: Push code to VPS bare repo
+      # Step 1: Protect core.php & LIB-database.php
+      - name: Revert protected files if modified
+        run: |
+          protected_files=("core.php" "LIB-database.php")
+          changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
+
+          for f in "${protected_files[@]}"; do
+            if echo "$changed_files" | grep -q "^$f$"; then
+              echo "⚠️ $f was modified, reverting..."
+              git checkout HEAD~1 -- "$f"
+              git config user.name "github-actions"
+              git config user.email "actions@github.com"
+              git commit -am "🔒 Reverted unauthorized change to $f"
+              git push origin main
+              exit 0   # stop here; a new workflow run will start from the revert commit
+            fi
+          done
+
+      # Step 2: Deploy to VPS
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: 74.208.158.229
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            echo "🚀 Starting deploy to VPS bare repo..."
-            cd /root
+            set -e
+            cd /var/www/html
 
-            # If a mirror clone doesn't exist, create it
-            if [ ! -d deploy-tmp ]; then
-              git clone --mirror https://github.com/nirajang20/PaperTrade-Inc.git deploy-tmp
-            fi
+            echo "📂 Directory: $(pwd)"
+            echo "🔎 Commit before deploy:"
+            git log -1 --oneline || echo "No commits yet"
 
-            cd deploy-tmp
-            git remote update
+            echo "🚀 Fetching and updating main branch..."
+            git fetch origin main
+            git checkout -B main origin/main
+            git clean -fd
 
-            # Push all branches/tags into VPS bare repo
-            git push --mirror ssh://root@74.208.158.229/var/repo/trade.git
-
-            echo "✅ Code pushed to VPS bare repo. Post-receive hook will deploy into /var/www/html"
+            echo "✅ Deployment done"
+            echo "🔎 Commit after deploy:"
+            git log -1 --oneline
+            echo "📄 Last lines of test-db.php:"
+            tail -n 3 test-db.php
