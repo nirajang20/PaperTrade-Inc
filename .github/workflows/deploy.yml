@@ -3,7 +3,7 @@ name: Auto Deploy to VPS
 on:
   push:
     branches:
-      - main   # Trigger only when pushing to main branch
+      - main   # Only trigger deploy when pushing to main branch
 
 jobs:
   deploy:
@@ -18,14 +18,7 @@ jobs:
         with:
           host: 74.208.158.229
           username: root
-          key: |
-            -----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACAlYXvuy6XeVKPsuVzdlVF61jxNlB5iLS7m13YNyn0lSgAAAJjB4rf7weK3
-+wAAAAtzc2gtZWQyNTUxOQAAACAlYXvuy6XeVKPsuVzdlVF61jxNlB5iLS7m13YNyn0lSg
-AAAEAdYIGvmdURQoxTMoLMqrphrR9bETagd38UF1z9eXmHGSVhe+7Lpd5Uo+y5XN2VUXrW
-PE2UHmItLubXdg3KfSVKAAAAEWRlcGxveUBwYXBlcnRyYWRlAQIDBA==
------END OPENSSH PRIVATE KEY-----
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/html
             git fetch origin
