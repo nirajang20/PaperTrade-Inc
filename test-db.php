@@ -6,5 +6,5 @@ if ($conn) {
   echo "❌ Error: " . mysqli_connect_error();
 }
 // edited on local computer
-// hello this is nirajan --- IGNORE ---
+// hello this is ashish from pc
 ?>
