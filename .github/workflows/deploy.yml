@@ -13,27 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   # full history needed to revert files
+          fetch-depth: 0
 
-      # Step 1: Protect core.php & LIB-database.php in GitHub repo
-      - name: Revert protected files if modified
-        run: |
-          protected_files=("core.php" "LIB-database.php")
-          changed_files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }})
-
-          for f in "${protected_files[@]}"; do
-            if echo "$changed_files" | grep -q "^$f$"; then
-              echo "⚠️ $f was modified, reverting..."
-              git checkout HEAD~1 -- "$f"
-              git config user.name "github-actions"
-              git config user.email "actions@github.com"
-              git commit -am "🔒 Reverted unauthorized change to $f"
-              git push origin main
-              exit 0   # stop here; a new workflow run will start after revert commit
-            fi
-          done
-
-      # Step 2: Deploy to VPS but preserve configs
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -44,29 +25,17 @@ jobs:
             set -e
             cd /var/www/html
 
-            echo "📂 Directory: $(pwd)"
+            echo "📂 Backup protected files..."
+            cp dashboard/lib/Core.php /tmp/Core.php.bak || true
+            cp dashboard/lib/LIB-database.php /tmp/LIB-database.php.bak || true
 
-            # Backup protected files before deploy
-            for f in core.php LIB-database.php; do
-              if [ -f "$f" ]; then
-                cp "$f" "/tmp/$f.bak"
-                echo "📦 Backed up $f"
-              fi
-            done
-
-            echo "🚀 Fetching and updating main branch..."
+            echo "🚀 Deploying latest code..."
             git fetch origin main
-            git checkout -B main origin/main
+            git reset --hard origin/main
             git clean -fd
 
-            # Restore protected files
-            for f in core.php LIB-database.php; do
-              if [ -f "/tmp/$f.bak" ]; then
-                mv "/tmp/$f.bak" "$f"
-                echo "🔒 Restored $f (preserved config)"
-              fi
-            done
+            echo "🔒 Restoring protected files..."
+            cp /tmp/Core.php.bak dashboard/lib/Core.php || true
+            cp /tmp/LIB-database.php.bak dashboard/lib/LIB-database.php || true
 
-            echo "✅ Deployment done"
-            echo "🔎 Commit after deploy:"
-            git log -1 --oneline
+            echo "✅ Deployment done (Core.php & LIB-database.php preserved)"
