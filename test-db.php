@@ -5,7 +5,8 @@ if ($conn) {
 } else {
   echo "❌ Error: " . mysqli_connect_error();
 }
-// edited on local computer
+
 // hello this is nirajan --- IGNORE ---
 // Working main file
+
 ?>
