@@ -392,7 +392,7 @@ body.login-page-enhanced .wrapper {
 <!-- (D) LOGIN FORM -->
 <div class="login-shell">
   <div class="login-brand">
-    <img src="../logo-transparent.png" class="login-logo" alt="Paper Trade" />
+    <img src="dist/img/logo-horizontal.png" class="login-logo" alt="Paper Trade" />
     <h1>Trade Dashboard</h1>
     <p>Access real-time insights, execute trades, and monitor performance with a workspace designed for speed and clarity.</p>
     <ul class="login-highlights">

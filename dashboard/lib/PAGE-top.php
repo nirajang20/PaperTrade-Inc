@@ -305,41 +305,48 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
         <li class="nav-item"><a href="<?=URL_HOST?>calendar.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Market Calendar</p></a></li>
         <li class="nav-item"><a href="<?=URL_HOST?>news.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>News & Announcements</p></a></li>
       </ul>
-    </li>
 
-    <!-- Learning / Gamification -->
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link">
-        <i class="nav-icon fas fa-graduation-cap"></i>
-        <p>
-          Learning Zone
-          <i class="right fas fa-angle-left"></i>
-        </p>
+      
+      
+      <!-- Learning / Gamification -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-graduation-cap"></i>
+          <p>
+            Learning Zone
+            <i class="right fas fa-angle-left"></i>
+          </p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="<?=URL_HOST?>tutorials.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Tutorials</p></a></li>
+          <li class="nav-item"><a href="<?=URL_HOST?>challenges.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Trading Challenges</p></a></li>
+          <li class="nav-item"><a href="<?=URL_HOST?>leaderboard.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Leaderboard</p></a></li>
+        </ul>
+      </li>
+      
+      <!-- Account -->
+      <li class="nav-item has-treeview">
+        <a href="#" class="nav-link">
+          <i class="nav-icon fas fa-user"></i>
+          <p>
+            My Account
+            <i class="right fas fa-angle-left"></i>
+          </p>
+        </a>
+        <ul class="nav nav-treeview">
+          <li class="nav-item"><a href="<?=URL_HOST?>profile.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Profile</p></a></li>
+          <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Settings</p></a></li>
+          <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Notifications</p></a></li>
+          <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="far fa-circle nav-icon"></i><p>Logout</p></a></li>
+        </ul>
+      </li>
+      
+      <li class="nav-item">
+      <a href="<?=URL_HOST?>test-page.php" class="nav-link">
+        <i class="nav-icon fas fa-tachometer-alt"></i>
+        <p>Test Page</p>
       </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>tutorials.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Tutorials</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>challenges.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Trading Challenges</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>leaderboard.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Leaderboard</p></a></li>
-      </ul>
     </li>
-
-    <!-- Account -->
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link">
-        <i class="nav-icon fas fa-user"></i>
-        <p>
-          My Account
-          <i class="right fas fa-angle-left"></i>
-        </p>
-      </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>profile.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Profile</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Settings</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Notifications</p></a></li>
-        <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="far fa-circle nav-icon"></i><p>Logout</p></a></li>
-      </ul>
-    </li>
-
   </ul>
 </nav>
 

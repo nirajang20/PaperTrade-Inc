@@ -1,34 +1,34 @@
 <?php if ($_ISADMIN) { ?>
-</div>
+  </div>
   <!-- /.content-wrapper -->
+
   <footer class="main-footer">
-    <strong>Copyright &copy; <?=date('Y')?> <a href="http://74.208.158.229/">PaperTrade Inc</a> | </strong>
+    <strong>Copyright &copy; <?=date('Y')?> 
+      <a href="http://74.208.158.229/">PaperTrade Inc</a>
+    </strong>
     All rights reserved.
     <div class="float-right d-none d-sm-inline-block">
       <b>Version</b> (Dev-Beta)
     </div>
   </footer>
-</div>
-
 <?php } ?>
 <!-- ./wrapper -->
 
+<!-- ✅ Chart.js (line chart only) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<!-- ✅ ApexCharts (candlestick) -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
 <!-- jQuery -->
 <script src="<?=URL_HOST?>plugins/jquery/jquery.min.js"></script>
-<!-- jQuery UI 1.11.4 -->
+<!-- jQuery UI -->
 <script src="<?=URL_HOST?>plugins/jquery-ui/jquery-ui.min.js"></script>
-<!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
-<!-- Bootstrap 4 -->
+<!-- Bootstrap -->
 <script src="<?=URL_HOST?>plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
-<!-- ChartJS -->
-<script src="<?=URL_HOST?>plugins/chart.js/Chart.min.js"></script>
 <!-- Sparkline -->
 <script src="<?=URL_HOST?>plugins/sparklines/sparkline.js"></script>
-<!-- JQVMap -->
-<!-- <script src="<?=URL_HOST?>plugins/jqvmap/jquery.vmap.min.js"></script>
-<script src="<?=URL_HOST?>plugins/jqvmap/maps/jquery.vmap.usa.js"></script> -->
-<!-- jQuery Knob Chart -->
+<!-- jQuery Knob -->
 <script src="<?=URL_HOST?>plugins/jquery-knob/jquery.knob.min.js"></script>
 <!-- daterangepicker -->
 <script src="<?=URL_HOST?>plugins/moment/moment.min.js"></script>
@@ -41,5 +41,6 @@
 <script src="<?=URL_HOST?>plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
 <!-- AdminLTE App -->
 <script src="<?=URL_HOST?>dist/js/adminlte.js"></script>
+
 </body>
 </html>

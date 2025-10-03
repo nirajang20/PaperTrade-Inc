@@ -158,14 +158,7 @@ require "../lib/PAGE-top.php";
               <button class="btn btn-tool" title="Refresh"><i class="fas fa-sync-alt"></i></button>
             </div>
           </div>
-          <div class="card-body pb-0">
-            <div class="input-group mb-3">
-              <input type="text" class="form-control" placeholder="Search ticker or company">
-              <div class="input-group-append">
-                <button class="btn btn-dark" type="button"><i class="fas fa-search"></i></button>
-              </div>
-            </div>
-          </div>
+          <div class="pb-0"></div>
           <div class="list-group list-group-flush" id="available-stocks">
             <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
               <div>
