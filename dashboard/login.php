@@ -421,7 +421,7 @@ body.login-page-enhanced .wrapper {
     <div class="login-actions">
       <div class="login-links">
         <a href="#" onclick="swal('Reset password', 'Please contact support to reset your password.'); return false;">Forgot password?</a>
-        <span>Need an account? <a href="#" onclick="swal('Coming soon', 'Registration is managed by your administrator.'); return false;">Request access</a></span>
+        <span>Need an account? <a href="registration.php">Request access</a></span>
       </div>
       <button type="submit" class="login-submit">
         <i class="fas fa-sign-in-alt"></i>
