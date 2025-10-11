@@ -260,6 +260,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
 }
 
 $recentOrders = [];
+$userIdForRecent = isset($active_user['user_id']) ? (int) $active_user['user_id'] : 0;
 if ($conn && isset($active_user['user_id'])) {
   $recentSql = "
     SELECT at.symbol, t.quantity, t.price, t.fees, t.executed_at
@@ -290,6 +291,86 @@ if ($conn && isset($active_user['user_id'])) {
   }
 }
 $availableCashValue = isset($active_user["user_balance"]) ? (float) $active_user["user_balance"] : 0.0;
+
+$watchlistItems = [];
+$watchlistTotal = 0;
+if ($conn && isset($active_user['user_id'])) {
+  $watchlistCountStmt = $conn->prepare("SELECT COUNT(*) FROM watchlist WHERE user_id = ?");
+  if ($watchlistCountStmt) {
+    $watchlistCountStmt->bind_param("i", $userIdForRecent);
+    if ($watchlistCountStmt->execute()) {
+      $watchlistCountStmt->bind_result($watchlistTotalRaw);
+      if ($watchlistCountStmt->fetch()) {
+        $watchlistTotal = (int) $watchlistTotalRaw;
+      }
+    }
+    $watchlistCountStmt->close();
+  }
+
+  $watchlistStmt = $conn->prepare("
+    SELECT w.watchlist_id, at.symbol, w.note, w.created_at
+    FROM watchlist w
+    INNER JOIN available_trade at ON at.id = w.symbol_id
+    WHERE w.user_id = ?
+    ORDER BY w.created_at DESC
+    LIMIT 6
+  ");
+  if ($watchlistStmt) {
+    $watchlistStmt->bind_param("i", $userIdForRecent);
+    if ($watchlistStmt->execute()) {
+      $watchlistStmt->bind_result($watchId, $watchSymbol, $watchNote, $watchCreated);
+      while ($watchlistStmt->fetch()) {
+        $watchlistItems[] = [
+          "id" => (int) $watchId,
+          "symbol" => strtoupper($watchSymbol),
+          "note" => $watchNote,
+          "created_at" => $watchCreated,
+          "price" => null,
+          "change_pct" => null
+        ];
+      }
+    }
+    $watchlistStmt->close();
+  }
+}
+
+if (!empty($watchlistItems)) {
+  $symbols = array_values(array_unique(array_map(function ($item) {
+    return $item["symbol"];
+  }, $watchlistItems)));
+  $chunks = array_chunk($symbols, 10);
+  $snapshotMap = [];
+  foreach ($chunks as $chunk) {
+    $query = implode(",", array_map("urlencode", $chunk));
+    $url = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $query;
+    $response = @file_get_contents($url);
+    if ($response === false) {
+      continue;
+    }
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+      continue;
+    }
+    foreach ($decoded as $item) {
+      if (!empty($item["symbol"])) {
+        $snapshotMap[strtoupper($item["symbol"])] = $item;
+      }
+    }
+  }
+
+  foreach ($watchlistItems as &$entry) {
+    $snapshot = $snapshotMap[$entry["symbol"]] ?? null;
+    if ($snapshot) {
+      if (isset($snapshot["current_price"])) {
+        $entry["price"] = (float) $snapshot["current_price"];
+      }
+      if (isset($snapshot["change_pct"])) {
+        $entry["change_pct"] = (float) $snapshot["change_pct"];
+      }
+    }
+  }
+  unset($entry);
+}
 ?>
 
 <section class="content">
@@ -356,21 +437,38 @@ $availableCashValue = isset($active_user["user_balance"]) ? (float) $active_user
 
         <!-- WATCHLIST -->
         <div class="card card-outline card-info mb-4">
-          <div class="card-header border-0">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">Pinned Watchlist</h3>
-            <span class="badge badge-info">Alerts · 3</span>
+            <span class="badge badge-info">Tracked · <?=number_format($watchlistTotal); ?></span>
           </div>
           <div class="card-body p-0">
             <ul class="list-group list-group-flush">
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>BTC/USD</span><span class="badge badge-success">+2.6%</span>
-              </li>
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>SPY</span><span class="badge badge-warning text-dark">+0.4%</span>
-              </li>
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>VIX</span><span class="badge badge-danger">-1.9%</span>
-              </li>
+              <?php if (!empty($watchlistItems)) { ?>
+                <?php foreach ($watchlistItems as $watch) {
+                  $change = $watch["change_pct"];
+                  $changeClass = "badge-secondary";
+                  if ($change !== null) {
+                    $changeClass = $change >= 0 ? "badge-success" : "badge-danger";
+                  }
+                  $changeText = $change !== null ? (($change >= 0 ? "+" : "") . number_format($change, 2) . "%") : "—";
+                  ?>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong><?=htmlspecialchars($watch["symbol"]); ?></strong>
+                      <?php if (!empty($watch["note"])) { ?>
+                        <div class="small text-muted"><?=htmlspecialchars($watch["note"]); ?></div>
+                      <?php } ?>
+                      <div class="small text-muted"><?=!empty($watch["created_at"]) ? date("M d, Y", strtotime($watch["created_at"])) : ""; ?></div>
+                    </div>
+                    <div class="text-right">
+                      <div class="font-weight-bold"><?=($watch["price"] !== null) ? "$" . number_format($watch["price"], 2, ".", ",") : "—"; ?></div>
+                      <span class="badge <?=$changeClass; ?>"><?=$changeText; ?></span>
+                    </div>
+                  </li>
+                <?php } ?>
+              <?php } else { ?>
+                <li class="list-group-item text-center text-muted py-4">Add symbols to your watchlist to surface them here.</li>
+              <?php } ?>
             </ul>
           </div>
         </div>

@@ -1,48 +1,295 @@
 <?php
 require "lib/Core.php";
-require PATH_LIB . "PAGE-top.php"; 
+require PATH_LIB . "PAGE-top.php";
 
 $showWelcomeToast = !empty($_SESSION['welcome_back']);
 if ($showWelcomeToast) {
   unset($_SESSION['welcome_back']);
 }
+
+$userId = isset($active_user['user_id']) ? (int) $active_user['user_id'] : 0;
+$cashBalance = isset($active_user['user_balance']) ? (float) $active_user['user_balance'] : 0.0;
+
+$formatCurrency = function ($value) {
+  $value = (float) $value;
+  $symbol = $value < 0 ? "-$" : "$";
+  return $symbol . number_format(abs($value), 2, '.', ',');
+};
+$formatNumber = function ($value, $decimals = 2) {
+  return number_format((float) $value, $decimals, '.', ',');
+};
+
+$holdings = [];
+$holdingsSymbols = [];
+$totalBookValue = 0.0;
+$totalMarketValue = 0.0;
+
+if ($conn && $userId > 0) {
+  $stmtHoldings = $conn->prepare("
+    SELECT at.symbol, h.quantity, h.avg_cost, h.updated_at
+    FROM holding h
+    INNER JOIN available_trade at ON at.id = h.symbol_id
+    WHERE h.user_id = ?
+    ORDER BY h.updated_at DESC, at.symbol ASC
+  ");
+  if ($stmtHoldings) {
+    $stmtHoldings->bind_param("i", $userId);
+    if ($stmtHoldings->execute()) {
+      $stmtHoldings->bind_result($symbol, $quantity, $avgCost, $updatedAt);
+      while ($stmtHoldings->fetch()) {
+        $symbolUpper = strtoupper($symbol);
+        $quantityValue = (float) $quantity;
+        $avgCostValue = (float) $avgCost;
+        $bookValue = $quantityValue * $avgCostValue;
+        $holdings[] = [
+          "symbol" => $symbolUpper,
+          "quantity" => $quantityValue,
+          "avg_cost" => $avgCostValue,
+          "book_value" => $bookValue,
+          "market_price" => null,
+          "market_value" => null,
+          "unrealized" => null,
+          "change_pct" => null,
+          "updated_at" => $updatedAt
+        ];
+        $holdingsSymbols[] = $symbolUpper;
+        $totalBookValue += $bookValue;
+      }
+    }
+    $stmtHoldings->close();
+  }
+}
+
+$watchlist = [];
+$watchlistSymbols = [];
+if ($conn && $userId > 0) {
+  $stmtWatch = $conn->prepare("
+    SELECT w.watchlist_id, at.symbol, w.note, w.created_at
+    FROM watchlist w
+    INNER JOIN available_trade at ON at.id = w.symbol_id
+    WHERE w.user_id = ?
+    ORDER BY w.created_at DESC
+    LIMIT 8
+  ");
+  if ($stmtWatch) {
+    $stmtWatch->bind_param("i", $userId);
+    if ($stmtWatch->execute()) {
+      $stmtWatch->bind_result($watchId, $symbol, $note, $createdAt);
+      while ($stmtWatch->fetch()) {
+        $symbolUpper = strtoupper($symbol);
+        $watchlist[] = [
+          "id" => (int) $watchId,
+          "symbol" => $symbolUpper,
+          "note" => $note,
+          "created_at" => $createdAt,
+          "price" => null,
+          "change_pct" => null
+        ];
+        $watchlistSymbols[] = $symbolUpper;
+      }
+    }
+    $stmtWatch->close();
+  }
+}
+
+$allSymbols = array_values(array_unique(array_merge($holdingsSymbols, $watchlistSymbols)));
+if (!empty($allSymbols)) {
+  $chunks = array_chunk($allSymbols, 10);
+  $snapshotMap = [];
+  foreach ($chunks as $chunk) {
+    $query = implode(",", array_map("urlencode", $chunk));
+    $apiUrl = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $query;
+    $response = @file_get_contents($apiUrl);
+    if ($response === false) {
+      continue;
+    }
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+      continue;
+    }
+    foreach ($decoded as $item) {
+      if (!empty($item["symbol"])) {
+        $snapshotMap[strtoupper($item["symbol"])] = $item;
+      }
+    }
+  }
+
+  foreach ($holdings as &$holding) {
+    $snapshot = $snapshotMap[$holding["symbol"]] ?? null;
+    if ($snapshot) {
+      if (isset($snapshot["current_price"])) {
+        $holding["market_price"] = (float) $snapshot["current_price"];
+        $holding["market_value"] = $holding["quantity"] * $holding["market_price"];
+      }
+      if (isset($snapshot["change_pct"])) {
+        $holding["change_pct"] = (float) $snapshot["change_pct"];
+      }
+    }
+    if ($holding["market_value"] === null) {
+      $holding["market_value"] = $holding["book_value"];
+    }
+    $holding["unrealized"] = $holding["market_value"] - $holding["book_value"];
+    $totalMarketValue += $holding["market_value"];
+  }
+  unset($holding);
+
+  foreach ($watchlist as &$item) {
+    $snapshot = $snapshotMap[$item["symbol"]] ?? null;
+    if ($snapshot) {
+      if (isset($snapshot["current_price"])) {
+        $item["price"] = (float) $snapshot["current_price"];
+      }
+      if (isset($snapshot["change_pct"])) {
+        $item["change_pct"] = (float) $snapshot["change_pct"];
+      }
+    }
+  }
+  unset($item);
+} else {
+  $totalMarketValue = 0.0;
+}
+
+$portfolioValue = $totalMarketValue + $cashBalance;
+$unrealizedPnL = $totalMarketValue - $totalBookValue;
+$buyingPower = $cashBalance + max(0, $totalMarketValue * 0.3);
+
+$totalTrades = 0;
+$totalFees = 0.0;
+$totalBuyValue = 0.0;
+$totalSellValue = 0.0;
+$lastTradeAt = null;
+$recentTrades = [];
+$monthlyLedger = [];
+
+if ($conn && $userId > 0) {
+  $stmtTrades = $conn->prepare("
+    SELECT at.symbol, t.side, t.quantity, t.price, t.fees, t.executed_at
+    FROM transaction t
+    INNER JOIN available_trade at ON at.id = t.symbol_id
+    WHERE t.user_id = ?
+    ORDER BY t.executed_at DESC
+  ");
+  if ($stmtTrades) {
+    $stmtTrades->bind_param("i", $userId);
+    if ($stmtTrades->execute()) {
+      $stmtTrades->bind_result($symbol, $side, $quantity, $price, $fees, $executedAt);
+      while ($stmtTrades->fetch()) {
+        $totalTrades++;
+        $lineValue = (float) $quantity * (float) $price;
+        $feeValue = (float) $fees;
+        $totalFees += $feeValue;
+
+        if ($side === 'BUY') {
+          $spend = $lineValue + $feeValue;
+          $totalBuyValue += $spend;
+          $netImpact = -$spend;
+        } else {
+          $proceeds = max($lineValue - $feeValue, 0);
+          $totalSellValue += $proceeds;
+          $netImpact = $proceeds;
+        }
+
+        if (empty($lastTradeAt)) {
+          $lastTradeAt = $executedAt;
+        }
+        if (count($recentTrades) < 6) {
+          $recentTrades[] = [
+            "symbol" => strtoupper($symbol),
+            "side" => $side,
+            "quantity" => (float) $quantity,
+            "price" => (float) $price,
+            "fees" => $feeValue,
+            "executed_at" => $executedAt
+          ];
+        }
+
+        if (!empty($executedAt)) {
+          $monthKey = date("Y-m", strtotime($executedAt));
+          if (!isset($monthlyLedger[$monthKey])) {
+            $monthlyLedger[$monthKey] = [
+              "contributions" => 0.0,
+              "withdrawals" => 0.0,
+              "net" => 0.0
+            ];
+          }
+          if ($side === 'BUY') {
+            $monthlyLedger[$monthKey]["contributions"] += $lineValue + $feeValue;
+            $monthlyLedger[$monthKey]["net"] -= $lineValue + $feeValue;
+          } else {
+            $monthlyLedger[$monthKey]["withdrawals"] += max($lineValue - $feeValue, 0);
+            $monthlyLedger[$monthKey]["net"] += max($lineValue - $feeValue, 0);
+          }
+        }
+      }
+    }
+    $stmtTrades->close();
+  }
+}
+
+ksort($monthlyLedger);
+$timelineSeries = [];
+$runningNet = 0.0;
+foreach ($monthlyLedger as $month => $totals) {
+  $runningNet += $totals["net"];
+  $timelineSeries[] = [
+    "month" => date("M Y", strtotime($month . "-01")),
+    "net" => round($totals["net"], 2),
+    "contributions" => round($totals["contributions"], 2),
+    "withdrawals" => round($totals["withdrawals"], 2),
+    "cumulative" => round($runningNet, 2)
+  ];
+}
+
+$allocationSeries = [];
+if (!empty($holdings)) {
+  usort($holdings, function ($a, $b) {
+    return ($b["market_value"] ?? 0) <=> ($a["market_value"] ?? 0);
+  });
+  foreach ($holdings as $holding) {
+    $allocationSeries[] = [
+      "symbol" => $holding["symbol"],
+      "value" => round($holding["market_value"], 2)
+    ];
+  }
+}
+
+$netCashFlow = $totalSellValue - $totalBuyValue;
+$holdingCount = count($holdings);
+$watchlistCount = count($watchlistSymbols);
+$watchlistUp = 0;
+$watchlistDown = 0;
+foreach ($watchlist as $item) {
+  if ($item["change_pct"] !== null) {
+    if ($item["change_pct"] >= 0) {
+      $watchlistUp++;
+    } else {
+      $watchlistDown++;
+    }
+  }
+}
 ?>
 
 <?php if ($showWelcomeToast && !empty($active_user['user_name'])) { ?>
   <script>
-    $(document).ready(function () {
+    document.addEventListener('DOMContentLoaded', function () {
       toastr.options = {
         closeButton: true,
-        debug: false,
-        newestOnTop: true,
         progressBar: true,
         positionClass: "toast-top-right",
-        preventDuplicates: true,
-        onclick: null,
-        showDuration: "300",
-        hideDuration: "1000",
-        timeOut: "10000",
-        extendedTimeOut: "1000",
-        showEasing: "swing",
-        hideEasing: "linear",
-        showMethod: "fadeIn",
-        hideMethod: "fadeOut"
+        timeOut: "9000"
       };
-
       toastr.success("Welcome back!", "👋 Hello <?= htmlspecialchars($active_user['user_name'], ENT_QUOTES); ?>");
     });
   </script>
 <?php } ?>
 
-<section class="content">
+<section class="content pt-3">
   <div class="container-fluid">
-
-    <!-- Summary Metrics -->
     <div class="row">
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="small-box bg-primary">
           <div class="inner">
-            <h3 id="portfolio-value">$100,500</h3>
+            <h3><?=$formatCurrency($portfolioValue); ?></h3>
             <p>Total Portfolio Value</p>
           </div>
           <div class="icon"><i class="fas fa-coins"></i></div>
@@ -51,165 +298,265 @@ if ($showWelcomeToast) {
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="small-box bg-success">
           <div class="inner">
-            <h3 id="available-cash">$25,106</h3>
+            <h3><?=$formatCurrency($cashBalance); ?></h3>
             <p>Available Cash</p>
           </div>
           <div class="icon"><i class="fas fa-wallet"></i></div>
         </div>
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
-        <div class="small-box bg-warning">
+        <?php $pnlClass = $unrealizedPnL >= 0 ? "text-success" : "text-danger"; ?>
+        <div class="small-box bg-light">
           <div class="inner">
-            <h3 id="profit-loss" class="text-dark">+$4,860</h3>
-            <p>Profit &amp; Loss</p>
+            <h3 class="<?=$pnlClass; ?>"><?=$formatCurrency($unrealizedPnL); ?></h3>
+            <p>Unrealized P&amp;L</p>
           </div>
-          <div class="icon"><i class="fas fa-percentage"></i></div>
+          <div class="icon"><i class="fas fa-chart-line text-muted"></i></div>
         </div>
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="small-box bg-info">
           <div class="inner">
-            <h3 id="buying-power">$185,001</h3>
-            <p>Buying Power</p>
+            <h3><?=$formatCurrency($buyingPower); ?></h3>
+            <p>Estimated Buying Power</p>
           </div>
           <div class="icon"><i class="fas fa-bolt"></i></div>
         </div>
       </div>
     </div>
 
-    <!-- Performance & Allocation -->
     <div class="row">
-      <div class="col-lg-8">
-        <div class="card card-outline card-dark mb-3">
-          <div class="card-header border-0 d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">Performance</h3>
-            <div class="btn-group btn-group-sm" role="group" aria-label="time range">
-              <button type="button" class="btn btn-outline-secondary active">1D</button>
-              <button type="button" class="btn btn-outline-secondary">1W</button>
-              <button type="button" class="btn btn-outline-secondary">1M</button>
-              <button type="button" class="btn btn-outline-secondary d-none d-sm-inline">YTD</button>
-              <button type="button" class="btn btn-outline-secondary d-none d-sm-inline">1Yr</button>
-              <button type="button" class="btn btn-outline-secondary d-none d-lg-inline">3Yr</button>
-              <button type="button" class="btn btn-outline-secondary d-none d-lg-inline">5Yr</button>
-            </div>
-          </div>
+      <div class="col-xl-4 col-md-6 mb-3">
+        <div class="card card-outline card-secondary h-100">
           <div class="card-body">
-            <div class="position-relative" style="height: 320px;">
-              <canvas id="performanceChart"></canvas>
+            <h5 class="card-title mb-3">Trading Activity</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Total trades</span>
+              <span class="font-weight-bold"><?=$formatNumber($totalTrades, 0); ?></span>
             </div>
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6">
-            <div class="card card-outline card-info mb-3">
-              <div class="card-header">
-                <h3 class="card-title mb-0">Holdings</h3>
-              </div>
-              <div class="card-body p-0">
-                <div class="table-responsive">
-                  <table class="table table-hover mb-0">
-                    <thead class="thead-light">
-                      <tr>
-                        <th>Symbol</th>
-                        <th class="text-right">Qty</th>
-                        <th class="text-right">Avg Price</th>
-                        <th class="text-right">P&amp;L</th>
-                      </tr>
-                    </thead>
-                    <tbody id="holdings-body">
-                      <tr>
-                        <td>AAPL</td>
-                        <td class="text-right">120</td>
-                        <td class="text-right">$147.35</td>
-                        <td class="text-right text-success">+$462.00</td>
-                      </tr>
-                      <tr>
-                        <td>TSLA</td>
-                        <td class="text-right">45</td>
-                        <td class="text-right">$221.80</td>
-                        <td class="text-right text-danger">-$119.25</td>
-                      </tr>
-                      <tr>
-                        <td>MSFT</td>
-                        <td class="text-right">80</td>
-                        <td class="text-right">$308.42</td>
-                        <td class="text-right text-success">+$375.20</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Last trade</span>
+              <span class="font-weight-bold"><?= $lastTradeAt ? date("M d, Y · h:i A", strtotime($lastTradeAt)) : "—"; ?></span>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card card-outline card-success mb-3">
-              <div class="card-header">
-                <h3 class="card-title mb-0">Watchlist</h3>
-              </div>
-              <div class="card-body p-0">
-                <ul class="list-group list-group-flush" id="watchlist">
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>BTC/USD</span>
-                    <span class="badge badge-success">+2.6%</span>
-                  </li>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>ETH/USD</span>
-                    <span class="badge badge-danger">-1.3%</span>
-                  </li>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>NVDA</span>
-                    <span class="badge badge-success">+3.1%</span>
-                  </li>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>EUR/USD</span>
-                    <span class="badge badge-warning text-dark">+0.4%</span>
-                  </li>
-                </ul>
-              </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted">Fees paid</span>
+              <span class="font-weight-bold"><?=$formatCurrency($totalFees); ?></span>
             </div>
           </div>
         </div>
       </div>
-
-      <div class="col-lg-4">
-        <div class="card card-outline card-primary mb-3">
-          <div class="card-header border-0">
-            <h3 class="card-title mb-0">Allocation Snapshot</h3>
-          </div>
+      <div class="col-xl-4 col-md-6 mb-3">
+        <div class="card card-outline card-success h-100">
           <div class="card-body">
-            <div class="position-relative mb-3" style="height: 250px;">
-              <canvas id="allocationChart"></canvas>
+            <h5 class="card-title mb-3">Cash Flow</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Capital deployed</span>
+              <span class="font-weight-bold"><?=$formatCurrency($totalBuyValue); ?></span>
             </div>
-            <ul class="list-unstyled mb-0 small">
-              <li class="mb-2"><i class="fas fa-circle text-success mr-2"></i>Long Positions</li>
-              <li class="mb-2"><i class="fas fa-circle text-danger mr-2"></i>Short Positions</li>
-              <li class="mb-2"><i class="fas fa-circle text-info mr-2"></i>Crypto Holdings</li>
-              <li class="mb-2"><i class="fas fa-circle text-warning mr-2"></i>Cash Reserves</li>
-              <li><i class="fas fa-circle text-secondary mr-2"></i>Other Assets</li>
-            </ul>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Proceeds realized</span>
+              <span class="font-weight-bold"><?=$formatCurrency($totalSellValue); ?></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted">Net cash flow</span>
+              <?php $netClass = $netCashFlow >= 0 ? "text-success" : "text-danger"; ?>
+              <span class="font-weight-bold <?=$netClass; ?>"><?=$formatCurrency($netCashFlow); ?></span>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="col-xl-4 col-md-12 mb-3">
+        <div class="card card-outline card-info h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Portfolio Snapshot</h5>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Active holdings</span>
+              <span class="font-weight-bold"><?=$formatNumber($holdingCount, 0); ?></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted">Watchlist symbols</span>
+              <span class="font-weight-bold"><?=$formatNumber($watchlistCount, 0); ?></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted">Watchlist trend</span>
+              <span class="font-weight-bold">
+                <span class="text-success mr-2">↑ <?=$formatNumber($watchlistUp, 0); ?></span>
+                <span class="text-danger">↓ <?=$formatNumber($watchlistDown, 0); ?></span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <div class="card card-outline card-danger mb-3">
-          <div class="card-header">
-            <h3 class="card-title mb-0">Trade Reminders</h3>
+    <div class="row">
+      <div class="col-lg-8 mb-3">
+        <div class="card card-outline card-dark h-100">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">Performance Timeline</h3>
+            <small class="text-muted">Monthly contributions, withdrawals, and net flow</small>
           </div>
           <div class="card-body">
-            <ul class="list-unstyled mb-0" id="trade-reminders">
-              <li class="mb-3">
-                <h5 class="mb-1">Rebalance Tech Exposure</h5>
-                <p class="text-muted mb-0">Trim positions if NVDA exceeds 25% portfolio weight.</p>
-              </li>
-              <li class="mb-3">
-                <h5 class="mb-1">Set Stop for BTC</h5>
-                <p class="text-muted mb-0">Place trailing stop at $28,900 before market close.</p>
-              </li>
-              <li>
-                <h5 class="mb-1">Review Earnings Plays</h5>
-                <p class="text-muted mb-0">AAPL &amp; TSLA report tomorrow aftermarket.</p>
-              </li>
-            </ul>
+            <div class="position-relative" style="height: 340px;">
+              <canvas id="performanceChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-3">
+        <div class="card card-outline card-primary h-100">
+          <div class="card-header border-0">
+            <h3 class="card-title mb-0">Allocation Breakdown</h3>
+          </div>
+          <div class="card-body">
+            <div class="position-relative mb-3" style="height: 260px;">
+              <canvas id="allocationChart"></canvas>
+            </div>
+            <?php if (!empty($holdings)) { ?>
+              <ul class="list-unstyled small mb-0">
+                <?php foreach (array_slice($holdings, 0, 5) as $holding) {
+                  $weight = $totalMarketValue > 0 ? ($holding["market_value"] / $totalMarketValue) * 100 : 0;
+                  ?>
+                  <li class="mb-2 d-flex justify-content-between align-items-center">
+                    <span><?=htmlspecialchars($holding["symbol"]); ?></span>
+                    <span><?=$formatNumber($weight, 1); ?>%</span>
+                  </li>
+                <?php } ?>
+              </ul>
+            <?php } else { ?>
+              <div class="text-muted text-center small">No holdings to display.</div>
+            <?php } ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-8 mb-3">
+        <div class="card card-outline card-info h-100">
+          <div class="card-header border-0">
+            <h3 class="card-title mb-0">Holdings</h3>
+          </div>
+          <div class="card-body p-0">
+            <?php if (empty($holdings)) { ?>
+              <div class="text-center text-muted py-5">No holdings yet. Execute your first trade to start building a portfolio.</div>
+            <?php } else { ?>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="thead-light">
+                    <tr>
+                      <th>Symbol</th>
+                      <th class="text-right">Quantity</th>
+                      <th class="text-right">Avg Cost</th>
+                      <th class="text-right">Last Price</th>
+                      <th class="text-right">Market Value</th>
+                      <th class="text-right">Unrealized</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($holdings as $holding) {
+                      $unrealClass = ($holding["unrealized"] ?? 0) >= 0 ? "text-success" : "text-danger";
+                      ?>
+                      <tr>
+                        <td><span class="badge badge-secondary badge-pill"><?=htmlspecialchars($holding["symbol"]); ?></span></td>
+                        <td class="text-right"><?=$formatNumber($holding["quantity"], 4); ?></td>
+                        <td class="text-right"><?=$formatCurrency($holding["avg_cost"]); ?></td>
+                        <td class="text-right"><?=$holding["market_price"] !== null ? $formatCurrency($holding["market_price"]) : "—"; ?></td>
+                        <td class="text-right"><?=$formatCurrency($holding["market_value"]); ?></td>
+                        <td class="text-right <?=$unrealClass; ?>"><?=$formatCurrency($holding["unrealized"]); ?></td>
+                      </tr>
+                    <?php } ?>
+                  </tbody>
+                </table>
+              </div>
+            <?php } ?>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-3">
+        <div class="card card-outline card-success h-100">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">Watchlist</h3>
+            <a href="<?=URL_HOST?>portfolio/watchlist.php" class="text-muted small">Manage</a>
+          </div>
+          <div class="card-body p-0">
+            <?php if (empty($watchlist)) { ?>
+              <div class="text-center text-muted py-5">Add symbols to your watchlist to monitor them here.</div>
+            <?php } else { ?>
+              <ul class="list-group list-group-flush" id="watchlist">
+                <?php foreach ($watchlist as $item) {
+                  $change = $item["change_pct"];
+                  $changeClass = $change === null ? "badge-secondary" : ($change >= 0 ? "badge-success" : "badge-danger");
+                  $changeText = $change === null ? "—" : (($change >= 0 ? "+" : "") . $formatNumber($change, 2) . "%");
+                  ?>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong><?=htmlspecialchars($item["symbol"]); ?></strong>
+                      <?php if (!empty($item["note"])) { ?>
+                        <div class="small text-muted"><?=htmlspecialchars($item["note"]); ?></div>
+                      <?php } ?>
+                      <div class="small text-muted"><?=!empty($item["created_at"]) ? date("M d, Y", strtotime($item["created_at"])) : ""; ?></div>
+                    </div>
+                    <div class="text-right">
+                      <div class="font-weight-bold"><?=$item["price"] !== null ? $formatCurrency($item["price"]) : "—"; ?></div>
+                      <span class="badge <?=$changeClass; ?>"><?=$changeText; ?></span>
+                    </div>
+                  </li>
+                <?php } ?>
+              </ul>
+            <?php } ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12 mb-3">
+        <div class="card card-outline card-dark">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">Recent Trades</h3>
+            <a href="<?=URL_HOST?>trading/transactions.php" class="text-muted small">View full history</a>
+          </div>
+          <div class="card-body p-0">
+            <?php if (empty($recentTrades)) { ?>
+              <div class="text-center text-muted py-5">You haven't executed any trades yet.</div>
+            <?php } else { ?>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="thead-light">
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Symbol</th>
+                      <th>Side</th>
+                      <th class="text-right">Quantity</th>
+                      <th class="text-right">Price</th>
+                      <th class="text-right">Fees</th>
+                      <th class="text-right">Net Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($recentTrades as $trade) {
+                      $sideBadge = $trade["side"] === "BUY" ? "badge-success" : "badge-danger";
+                      $lineValue = $trade["quantity"] * $trade["price"];
+                      $netAmount = $trade["side"] === "BUY"
+                        ? -($lineValue + $trade["fees"])
+                        : ($lineValue - $trade["fees"]);
+                      $netClass = $netAmount >= 0 ? "text-success" : "text-danger";
+                      ?>
+                      <tr>
+                        <td><?=date("M d, Y · h:i A", strtotime($trade["executed_at"])); ?></td>
+                        <td><?=htmlspecialchars($trade["symbol"]); ?></td>
+                        <td><span class="badge <?=$sideBadge; ?>"><?=$trade["side"]; ?></span></td>
+                        <td class="text-right"><?=$formatNumber($trade["quantity"], 4); ?></td>
+                        <td class="text-right"><?=$formatCurrency($trade["price"]); ?></td>
+                        <td class="text-right"><?=$formatCurrency($trade["fees"]); ?></td>
+                        <td class="text-right <?=$netClass; ?>"><?=$formatCurrency($netAmount); ?></td>
+                      </tr>
+                    <?php } ?>
+                  </tbody>
+                </table>
+              </div>
+            <?php } ?>
           </div>
         </div>
       </div>
@@ -217,63 +564,117 @@ if ($showWelcomeToast) {
   </div>
 </section>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const lineCtx = document.getElementById("performanceChart");
-  const donutCtx = document.getElementById("allocationChart");
+  const timelineSeries = <?=json_encode($timelineSeries); ?>;
+  const allocationSeries = <?=json_encode($allocationSeries); ?>;
 
-  const timeLabels = ["9:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30"];
-  const equityPoints = [98500, 99300, 100250, 99800, 100980, 101400, 102360];
+  const performanceCtx = document.getElementById("performanceChart");
+  const allocationCtx = document.getElementById("allocationChart");
 
-  new Chart(lineCtx, {
-    type: "line",
-    data: {
-      labels: timeLabels,
-      datasets: [{
-        label: "Equity",
-        data: equityPoints,
-        borderColor: "#ff6384",
-        backgroundColor: "rgba(255,99,132,0.12)",
-        borderWidth: 2,
-        pointBackgroundColor: "#ff6384",
-        pointRadius: 3,
-        tension: 0.4
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      responsive: true,
-      scales: {
-        x: { grid: { display: false }, ticks: { color: "#adb5bd" } },
-        y: { ticks: { color: "#adb5bd" }, grid: { color: "rgba(255,255,255,0.05)" } }
+  if (performanceCtx && timelineSeries.length) {
+    const labels = timelineSeries.map(item => item.month);
+    const contributions = timelineSeries.map(item => -Number(item.contributions || 0));
+    const withdrawals = timelineSeries.map(item => Number(item.withdrawals || 0));
+    const cumulative = timelineSeries.map(item => Number(item.cumulative || 0));
+
+    new Chart(performanceCtx, {
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Contributions',
+            data: contributions,
+            backgroundColor: 'rgba(220,53,69,0.65)',
+            borderWidth: 0,
+            stack: 'cashflow'
+          },
+          {
+            type: 'bar',
+            label: 'Withdrawals',
+            data: withdrawals,
+            backgroundColor: 'rgba(40,167,69,0.65)',
+            borderWidth: 0,
+            stack: 'cashflow'
+          },
+          {
+            type: 'line',
+            label: 'Net Flow',
+            data: cumulative,
+            borderColor: '#17a2b8',
+            backgroundColor: 'rgba(23,162,184,0.15)',
+            borderWidth: 3,
+            tension: 0.35,
+            yAxisID: 'y1'
+          }
+        ]
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: { mode: "index", intersect: false }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, ticks: { color: '#6c757d' } },
+          y: {
+            stacked: true,
+            ticks: {
+              callback: (value) => '$' + Number(value).toLocaleString()
+            }
+          },
+          y1: {
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            ticks: {
+              callback: (value) => '$' + Number(value).toLocaleString()
+            }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': $' + Number(context.parsed.y).toLocaleString(undefined, { maximumFractionDigits: 2 });
+              }
+            }
+          }
+        }
       }
-    }
-  });
+    });
+  }
 
-  new Chart(donutCtx, {
-    type: "doughnut",
-    data: {
-      labels: ["Long", "Short", "Crypto", "Cash", "Other"],
-      datasets: [{
-        data: [45, 15, 20, 12, 8],
-        backgroundColor: ["#28a745", "#dc3545", "#17a2b8", "#ffc107", "#6c757d"],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      cutout: "65%",
-      plugins: {
-        legend: { display: false }
+  if (allocationCtx && allocationSeries.length) {
+    const labels = allocationSeries.map(item => item.symbol);
+    const data = allocationSeries.map(item => Number(item.value || 0));
+
+    new Chart(allocationCtx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: ['#007bff', '#dc3545', '#17a2b8', '#ffc107', '#28a745', '#6610f2', '#6c757d', '#20c997', '#fd7e14', '#e83e8c'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.label + ': $' + Number(context.parsed).toLocaleString(undefined, { maximumFractionDigits: 2 });
+              }
+            }
+          }
+        }
       }
-    }
-  });
+    });
+  }
 });
 </script>
 
