@@ -40,7 +40,7 @@ if (isset($_POST["req"])) {
             }
           }
           $_SESSION['active_email'] = $_POST["email"];
-
+          $_SESSION['welcome_back'] = true;
           // 🕒 UPDATE LAST LOGIN DATE
           $today = date("Y-m-d H:i:s"); // or Y-m-d if you want only date
           // Use a compatible DB method if available to avoid calling a non-existent DB::query()

@@ -1,6 +1,38 @@
 <?php
 require "lib/Core.php";
-require PATH_LIB . "PAGE-top.php"; ?>
+require PATH_LIB . "PAGE-top.php"; 
+
+$showWelcomeToast = !empty($_SESSION['welcome_back']);
+if ($showWelcomeToast) {
+  unset($_SESSION['welcome_back']);
+}
+?>
+
+<?php if ($showWelcomeToast && !empty($active_user['user_name'])) { ?>
+  <script>
+    $(document).ready(function () {
+      toastr.options = {
+        closeButton: true,
+        debug: false,
+        newestOnTop: true,
+        progressBar: true,
+        positionClass: "toast-top-right",
+        preventDuplicates: true,
+        onclick: null,
+        showDuration: "300",
+        hideDuration: "1000",
+        timeOut: "10000",
+        extendedTimeOut: "1000",
+        showEasing: "swing",
+        hideEasing: "linear",
+        showMethod: "fadeIn",
+        hideMethod: "fadeOut"
+      };
+
+      toastr.success("Welcome back!", "👋 Hello <?= htmlspecialchars($active_user['user_name'], ENT_QUOTES); ?>");
+    });
+  </script>
+<?php } ?>
 
 <section class="content">
   <div class="container-fluid">
