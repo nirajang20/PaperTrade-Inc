@@ -69,7 +69,7 @@ if ($showWelcomeToast) {
       <div class="col-xl-3 col-md-6 mb-3">
         <div class="small-box bg-info">
           <div class="inner">
-            <h3 id="buying-power">$185,000</h3>
+            <h3 id="buying-power">$185,001</h3>
             <p>Buying Power</p>
           </div>
           <div class="icon"><i class="fas fa-bolt"></i></div>
