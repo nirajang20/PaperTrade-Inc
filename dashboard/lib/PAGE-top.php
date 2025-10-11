@@ -40,7 +40,9 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
   <script src="<?=URL_HOST?>plugins/toastr/toastr.min.js"></script>
   <!-- jQuery -->
   <script src="<?=URL_HOST?>plugins/jquery/jquery.min.js"></script>
-
+  <!-- admin.js -->
+    <script>var url = {host:"<?=URL_HOST?>",public:"<?=URL_PUBLIC?>"};</script>
+    <script async src="<?=URL_PUBLIC?>admin.js"></script>
   <!-- Sweet Alert-->
   <script src="
 https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js
@@ -213,7 +215,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
     <!-- User Profile Dropdown -->
     <li class="nav-item dropdown">
       <a class="nav-link" data-toggle="dropdown" href="#">
-        <img src="<?=URL_HOST?>dist/img/user2-160x160.jpg" alt="User" class="img-size-32 img-circle">
+        <img src="<?=URL_HOST?>dist/img/<?=$active_user['avatar']?>" alt="User" class="img-size-32 img-circle">
       </a>
       <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
         <div class="dropdown-header text-center">
@@ -252,7 +254,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
       <!-- Sidebar user panel (optional) -->
       <div class="user-panel mt-3 pb-3 mb-3 d-flex">
         <div class="image">
-          <img src="<?=URL_HOST?>dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
+          <img src="<?=URL_HOST?>dist/img/<?=$active_user['avatar']?>" class="img-circle elevation-2" alt="User Image">
         </div>
         <div class="info">
           <a href="#" class="d-block"><?=$active_user['user_name']?></a>

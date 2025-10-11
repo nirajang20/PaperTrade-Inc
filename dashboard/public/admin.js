@@ -13,20 +13,45 @@ var admin = {
 
   // (C) SIGN OFF
 	bye : () => {
-    swal("Are you sure you want to logout?", {
-      buttons: ["NO!", "YES!"],
-    })
-    .then((willDelete) => {
-      if (willDelete) {
-        admin.ajax({
+    const swalWithBootstrapButtons = Swal.mixin({
+  customClass: {
+    confirmButton: "btn btn-success",
+    cancelButton: "btn btn-danger"
+  },
+  buttonsStyling: false
+});
+swalWithBootstrapButtons.fire({
+  title: "Are you sure?",
+  text: "You need to login again!",
+  icon: "warning",
+  showCancelButton: true,
+  confirmButtonText: "Yes, logout!",
+  cancelButtonText: "No, cancel!",
+  reverseButtons: true
+}).then((result) => {
+  if (result.isConfirmed) {
+    swalWithBootstrapButtons.fire({
+      title: "Logged out!",
+      text: "You have been logged out.",
+      icon: "success"
+    }).then(() => {
+      admin.ajax({
           url : url.host + "ajax-session.php",
           data : { req : "out" },
           ok : () => { location.reload(); }
         });
-      } else {
-        swal("Opps!...... Sorry");
-      }
-    })
+    });
+  } else if (
+    /* Read more about handling dismissals below */
+    result.dismiss === Swal.DismissReason.cancel
+  ) {
+    swalWithBootstrapButtons.fire({
+      title: "Cancelled",
+      text: "You are still logged in :)",
+      icon: "error"
+    });
+  }
+});
   },
 
   // (D) AJAX FETCH
@@ -47,13 +72,22 @@ var admin = {
       } else { return res.text(); }
     })
     .then((txt) => {
-      if (txt != "OK") { swal({
-        title: txt,
-        text: " ",
-        icon: "error",
-        buttons: false,
-        timer: 1000
-      }); }
+      if (txt != "OK") { 
+        Swal.fire({
+          title: txt,
+          text: "Please check your login details and try again.",
+          icon: "error",
+          iconColor: "#e74c3c",
+          confirmButtonText: "Try Again",
+          confirmButtonColor: "#e74c3c",
+          showClass: {
+            popup: "animate__animated animate__shakeX"
+          },
+          hideClass: {
+            popup: "animate__animated animate__fadeOutUp"
+          }
+        });
+    }
       else { opt.ok(); }
     })
     .catch((err) => { console.error(err); });

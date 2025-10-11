@@ -162,7 +162,7 @@ if (isset($active_user) && is_array($active_user)) {
                 <span>Last Login</span>
               </div>
               <div class="col-sm-4 col-12 stat mb-3 mb-sm-0 text-center">
-                <h5 id="profile-member-since"><?=$active_user['created_at']?></h5>
+                <h5 id="profile-member-since"><?= isset($active_user['created_at']) ? substr($active_user['created_at'], 0, 4) : '' ?></h5>
                 <span>Member Since</span>
               </div>
               <div class="col-sm-4 col-12 text-center">

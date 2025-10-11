@@ -1,6 +1,6 @@
 <?php
 require "lib/Core.php";
-date_default_timezone_set('America/Chicago');
+
 if (isset($_POST["req"])) { 
   switch ($_POST["req"]) {
 
@@ -71,7 +71,7 @@ if (isset($_POST["req"])) {
           exit("OK");
         }
 
-        exit("Invalid username/password!");
+        exit("Invalid Email or Password!");
       }
 
     // (C) LOGOUT

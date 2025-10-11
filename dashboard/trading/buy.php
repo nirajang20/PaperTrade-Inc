@@ -63,6 +63,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
   }
 
   $fees = $feesInput >= 0 ? $feesInput : 0.0;
+  $tradeCost = $orderMode === "amount" ? $finalAmount : ($finalQuantity * $finalPrice);
+  $tradeCost = $tradeCost > 0 ? $tradeCost : 0.0;
+  $totalCost = $tradeCost + $fees;
+  if ($tradeCost <= 0) {
+    $errors[] = "Unable to calculate the cost of this order. Please review your inputs.";
+  }
 
   $symbolId = null;
   if (empty($errors)) {
@@ -106,6 +112,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
         throw new Exception("Unable to start database transaction.");
       }
       $transactionStarted = true;
+
+      $stmtBalanceSelect = $conn->prepare("SELECT user_balance FROM users WHERE user_id = ? FOR UPDATE");
+      if (!$stmtBalanceSelect) {
+        throw new Exception("Unable to prepare balance check.");
+      }
+      $stmtBalanceSelect->bind_param("i", $userId);
+      if (!$stmtBalanceSelect->execute()) {
+        $stmtBalanceSelect->close();
+        throw new Exception("Unable to verify available balance.");
+      }
+      $stmtBalanceSelect->bind_result($availableBalanceRaw);
+      if (!$stmtBalanceSelect->fetch()) {
+        $stmtBalanceSelect->close();
+        throw new Exception("Account balance record could not be located.");
+      }
+      $stmtBalanceSelect->close();
+
+      $availableBalance = (float) $availableBalanceRaw;
+      if ($availableBalance < $totalCost) {
+        throw new Exception("Insufficient balance. You need $" . number_format($totalCost, 2) . " but only have $" . number_format($availableBalance, 2) . ".");
+      }
 
       $stmtOrder = $conn->prepare("INSERT INTO transaction (user_id, symbol_id, side, quantity, price, fees) VALUES (?, ?, 'BUY', ?, ?, ?)");
       if (!$stmtOrder) {
@@ -188,6 +215,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
         $stmtHoldingInsert->close();
       }
 
+      $newBalance = $availableBalance - $totalCost;
+      $newBalance = round($newBalance, 2);
+      if ($newBalance < 0) {
+        $newBalance = 0.0;
+      }
+      $stmtBalanceUpdate = $conn->prepare("UPDATE users SET user_balance = ?, last_updated = NOW() WHERE user_id = ?");
+      if (!$stmtBalanceUpdate) {
+        throw new Exception("Unable to prepare balance update.");
+      }
+      $stmtBalanceUpdate->bind_param("di", $newBalance, $userId);
+      if (!$stmtBalanceUpdate->execute()) {
+        $stmtBalanceUpdate->close();
+        throw new Exception("Unable to update account balance.");
+      }
+      $stmtBalanceUpdate->close();
+      $active_user["user_balance"] = $newBalance;
+
       if (!$conn->commit()) {
         throw new Exception("Unable to finalize the order.");
       }
@@ -245,6 +289,7 @@ if ($conn && isset($active_user['user_id'])) {
     $stmtRecent->close();
   }
 }
+$availableCashValue = isset($active_user["user_balance"]) ? (float) $active_user["user_balance"] : 0.0;
 ?>
 
 <section class="content">
@@ -495,8 +540,8 @@ if ($conn && isset($active_user['user_id'])) {
             </div>
           </div>
           <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-column flex-md-row">
-            <div class="text-muted small mb-3 mb-md-0" data-available-cash="60137" id="available-cash-wrapper">
-              <span class="mr-3" id="available-cash-display"><i class="fas fa-wallet mr-1"></i>Available cash: $60,137.00</span>
+            <div class="text-muted small mb-3 mb-md-0" data-available-cash="<?=htmlspecialchars($availableCashValue, ENT_QUOTES); ?>" id="available-cash-wrapper">
+              <span class="mr-3" id="available-cash-display"><i class="fas fa-wallet mr-1"></i>Available cash: $<?=number_format($availableCashValue, 2, '.', ','); ?></span>
             </div>
             <div>
               <button type="button" class="btn btn-outline-secondary mr-2" id="clear-trade-btn"><i class="fas fa-undo"></i> Clear Ticket</button>
