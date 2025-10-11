@@ -1,230 +1,315 @@
 <?php
 require "../lib/Core.php";
 require "../lib/PAGE-top.php";
+
+$tradeAlert = null;
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) {
+  $orderModeRaw = $_POST["order_mode"] ?? "";
+  $orderMode = strtolower(trim($orderModeRaw));
+  $symbol = strtoupper(trim($_POST["symbol"] ?? ""));
+  $quantityInput = isset($_POST["quantity"]) ? (float) $_POST["quantity"] : 0.0;
+  $amountInput = isset($_POST["amount"]) ? (float) $_POST["amount"] : 0.0;
+  $limitPriceInput = isset($_POST["limit_price"]) ? (float) $_POST["limit_price"] : 0.0;
+  $priceSnapshot = isset($_POST["price_snapshot"]) ? (float) $_POST["price_snapshot"] : 0.0;
+  $feesInput = isset($_POST["fees"]) ? (float) $_POST["fees"] : 0.0;
+  $note = trim($_POST["note"] ?? "");
+
+  $errors = [];
+
+  if (!$conn) {
+    $errors[] = "Unable to reach the trading database.";
+  }
+
+  if (empty($active_user) || !isset($active_user["user_id"])) {
+    $errors[] = "Your session has expired. Please log in again.";
+  }
+
+  if ($symbol === "") {
+    $errors[] = "Please choose a symbol before submitting an order.";
+  }
+
+  if (!in_array($orderMode, ["shares", "amount"], true)) {
+    $errors[] = "Invalid order mode selected.";
+  }
+
+  $finalQuantity = 0.0;
+  $finalPrice = $limitPriceInput > 0 ? $limitPriceInput : $priceSnapshot;
+  $finalAmount = max($amountInput, 0);
+
+  if ($orderMode === "shares") {
+    $finalQuantity = max($quantityInput, 0);
+    if ($finalQuantity <= 0) {
+      $errors[] = "Enter a positive number of shares.";
+    }
+    if ($finalPrice <= 0) {
+      $errors[] = "Price information is missing. Please refresh and try again.";
+    }
+  } elseif ($orderMode === "amount") {
+    $finalAmount = max($amountInput, 0);
+    if ($finalAmount <= 0) {
+      $errors[] = "Enter a positive invest amount.";
+    }
+    if ($priceSnapshot <= 0) {
+      $errors[] = "Live price unavailable. Please refresh and try again.";
+    } else {
+      $finalQuantity = $finalAmount / $priceSnapshot;
+      $finalPrice = $priceSnapshot;
+    }
+  }
+
+  if ($finalPrice <= 0) {
+    $errors[] = "Unable to determine a valid execution price.";
+  }
+
+  $fees = $feesInput >= 0 ? $feesInput : 0.0;
+
+  $symbolId = null;
+  if (empty($errors)) {
+    $stmtSymbol = $conn->prepare("SELECT id FROM available_trade WHERE symbol = ?");
+    if ($stmtSymbol) {
+      $stmtSymbol->bind_param("s", $symbol);
+      if ($stmtSymbol->execute()) {
+        $stmtSymbol->bind_result($symbolId);
+        $stmtSymbol->fetch();
+      }
+      $stmtSymbol->close();
+    } else {
+      $errors[] = "Unable to look up the selected symbol.";
+    }
+  }
+
+  if (empty($errors) && !$symbolId) {
+    $stmtInsertSymbol = $conn->prepare("INSERT INTO available_trade (symbol) VALUES (?)");
+    if ($stmtInsertSymbol) {
+      $stmtInsertSymbol->bind_param("s", $symbol);
+      if ($stmtInsertSymbol->execute()) {
+        $symbolId = $stmtInsertSymbol->insert_id;
+      } else {
+        $errors[] = "Unable to register the selected symbol.";
+      }
+      $stmtInsertSymbol->close();
+    } else {
+      $errors[] = "Unable to prepare the symbol registry.";
+    }
+  }
+
+  if (empty($errors) && (!$symbolId || $finalQuantity <= 0 || $finalPrice <= 0)) {
+    $errors[] = "Order validation failed. Please verify your order details.";
+  }
+
+  if (empty($errors)) {
+    $userId = (int) $active_user["user_id"];
+    $transactionStarted = false;
+    try {
+      if (!$conn->begin_transaction()) {
+        throw new Exception("Unable to start database transaction.");
+      }
+      $transactionStarted = true;
+
+      $stmtOrder = $conn->prepare("INSERT INTO transaction (user_id, symbol_id, side, quantity, price, fees) VALUES (?, ?, 'BUY', ?, ?, ?)");
+      if (!$stmtOrder) {
+        throw new Exception("Unable to prepare the trade submission.");
+      }
+
+      $quantityFormatted = round($finalQuantity, 4);
+      $priceFormatted = round($finalPrice, 4);
+      $feesFormatted = round($fees, 2);
+      $stmtOrder->bind_param("iiddd", $userId, $symbolId, $quantityFormatted, $priceFormatted, $feesFormatted);
+      if (!$stmtOrder->execute()) {
+        $orderError = $stmtOrder->error ?: "Order execution failed.";
+        $stmtOrder->close();
+        throw new Exception("Unable to submit the order: " . $orderError);
+      }
+      $stmtOrder->close();
+
+      $holdingId = null;
+      $currentQty = 0.0;
+      $currentAvgCost = 0.0;
+      $currentNote = null;
+      $hasHolding = false;
+
+      $stmtHoldingSelect = $conn->prepare("SELECT holding_id, quantity, avg_cost, note FROM holding WHERE user_id = ? AND symbol_id = ? LIMIT 1 FOR UPDATE");
+      if (!$stmtHoldingSelect) {
+        throw new Exception("Unable to prepare holdings lookup.");
+      }
+      $stmtHoldingSelect->bind_param("ii", $userId, $symbolId);
+      if (!$stmtHoldingSelect->execute()) {
+        $stmtHoldingSelect->close();
+        throw new Exception("Unable to fetch existing holdings.");
+      }
+      $stmtHoldingSelect->bind_result($holdingId, $currentQty, $currentAvgCost, $currentNote);
+      $hasHolding = (bool) $stmtHoldingSelect->fetch();
+      $stmtHoldingSelect->close();
+
+      $noteToStore = $note !== "" ? $note : ($hasHolding ? $currentNote : null);
+
+      if ($hasHolding) {
+        $newQty = (float) $currentQty + (float) $finalQuantity;
+        if ($newQty <= 0) {
+          throw new Exception("Resulting holding quantity is invalid.");
+        }
+
+        $existingTotalCost = ((float) $currentQty) * ((float) $currentAvgCost);
+        $newTradeCost = ((float) $finalQuantity * (float) $finalPrice) + (float) $fees;
+        $newAvgCost = ($existingTotalCost + $newTradeCost) / $newQty;
+
+        $stmtHoldingUpdate = $conn->prepare("UPDATE holding SET quantity = ?, avg_cost = ?, note = ?, updated_at = NOW() WHERE holding_id = ?");
+        if (!$stmtHoldingUpdate) {
+          throw new Exception("Unable to prepare holdings update.");
+        }
+        $newQtyRounded = round($newQty, 4);
+        $newAvgRounded = round($newAvgCost, 4);
+        $noteParam = $noteToStore;
+        $stmtHoldingUpdate->bind_param("ddsi", $newQtyRounded, $newAvgRounded, $noteParam, $holdingId);
+        if (!$stmtHoldingUpdate->execute()) {
+          $stmtHoldingUpdate->close();
+          throw new Exception("Unable to update holdings record.");
+        }
+        $stmtHoldingUpdate->close();
+      } else {
+        if ($finalQuantity <= 0) {
+          throw new Exception("Unable to determine purchased quantity.");
+        }
+        $avgCost = (($finalQuantity * $finalPrice) + $fees) / $finalQuantity;
+        $avgCostRounded = round($avgCost, 4);
+        $qtyRounded = round($finalQuantity, 4);
+        $noteValue = $note !== "" ? $note : null;
+
+        $stmtHoldingInsert = $conn->prepare("INSERT INTO holding (user_id, symbol_id, quantity, avg_cost, note) VALUES (?, ?, ?, ?, ?)");
+        if (!$stmtHoldingInsert) {
+          throw new Exception("Unable to prepare holdings insert.");
+        }
+        $stmtHoldingInsert->bind_param("iidds", $userId, $symbolId, $qtyRounded, $avgCostRounded, $noteValue);
+        if (!$stmtHoldingInsert->execute()) {
+          $stmtHoldingInsert->close();
+          throw new Exception("Unable to create holdings record.");
+        }
+        $stmtHoldingInsert->close();
+      }
+
+      if (!$conn->commit()) {
+        throw new Exception("Unable to finalize the order.");
+      }
+      $transactionStarted = false;
+
+      $tradeAlert = [
+        "type" => "success",
+        "title" => "Buy Order Submitted",
+        "text" => "Your order for {$symbol} has been recorded and holdings updated."
+      ];
+    } catch (Exception $exception) {
+      if ($transactionStarted) {
+        $conn->rollback();
+      }
+      $errors[] = $exception->getMessage();
+    }
+  }
+
+  if (!empty($errors)) {
+    $tradeAlert = [
+      "type" => "error",
+      "title" => "Buy Order Failed",
+      "text" => implode("\n", array_unique($errors))
+    ];
+  }
+}
+
+$recentOrders = [];
+if ($conn && isset($active_user['user_id'])) {
+  $recentSql = "
+    SELECT at.symbol, t.quantity, t.price, t.fees, t.executed_at
+    FROM transaction t
+    INNER JOIN available_trade at ON at.id = t.symbol_id
+    WHERE t.user_id = ? AND t.side = 'BUY'
+      AND t.executed_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+    ORDER BY t.executed_at DESC
+    LIMIT 20
+  ";
+  $stmtRecent = $conn->prepare($recentSql);
+  if ($stmtRecent) {
+    $userIdForRecent = (int) $active_user['user_id'];
+    $stmtRecent->bind_param("i", $userIdForRecent);
+    if ($stmtRecent->execute()) {
+      $stmtRecent->bind_result($recentSymbol, $recentQty, $recentPrice, $recentFees, $recentExecutedAt);
+      while ($stmtRecent->fetch()) {
+        $recentOrders[] = [
+          "symbol" => $recentSymbol,
+          "quantity" => (float) $recentQty,
+          "price" => (float) $recentPrice,
+          "fees" => (float) $recentFees,
+          "executed_at" => $recentExecutedAt
+        ];
+      }
+    }
+    $stmtRecent->close();
+  }
+}
 ?>
 
 <section class="content">
   <div class="container-fluid">
 
+    <!-- HEADER -->
     <div class="row align-items-center mb-3">
       <div class="col-lg-8">
         <h1 class="h3 mb-1"><i class="fas fa-shopping-cart text-success mr-2"></i>Trade Tickets · <span id="page-intent-label" class="text-success">Buy</span></h1>
         <p class="text-muted mb-0">Track the market, review performance, and stage a buy order without leaving this workspace.</p>
       </div>
-      <div class="col-lg-4 text-lg-right mt-3 mt-lg-0">
-        <div class="btn-group btn-group-toggle" data-role="intent-group" data-toggle="buttons">
-          <label class="btn btn-sm btn-outline-success active" data-intent="buy">
-            <input type="radio" name="ticket-mode" autocomplete="off" value="buy" checked> Buy
-          </label>
-          <label class="btn btn-sm btn-outline-danger" data-intent="sell">
-            <input type="radio" name="ticket-mode" autocomplete="off" value="sell"> Sell
-          </label>
-        </div>
+    </div>
+    <hr>
+    <div class="row">
+      <!-- LEFT COLUMN: Selected Stock -->
+      <div class="col-xl-4">
+<div class="card card-outline card-success mb-4">
+  <div class="card-header border-0 d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">Selected Stock</h3>
+    <span class="badge badge-success">Live</span>
+    </div>
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h2 class="mb-0" id="selected-symbol">Loading...</h2>
+        <p class="text-muted mb-3" id="selected-company">Loading company name</p>
+        <!-- <div class="badge badge-light text-muted">Loading stock exchange...</div> -->
+      </div>
+      <div class="text-right">
+        <small class="text-muted d-block">Last Price</small>
+        <h2 class="mb-0" id="selected-price">--.--</h2>
+        <span class="text-muted" id="selected-change">Loading change...</span>
       </div>
     </div>
 
-    <div class="row">
-      <div class="col-xl-4">
-        <div class="card card-outline card-success mb-4">
+    <div class="row pt-3">
+      <div class="col-6"><small class="text-muted">Open</small><p id="selected-open" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">Previous Close</small><p id="selected-prev-close" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">Day Range</small><p id="selected-day-range" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">52W Range</small><p id="selected-52w-range" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">Volume</small><p id="selected-volume" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">Avg Volume</small><p id="selected-avg-volume" class="font-weight-bold mb-3">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">Market Cap</small><p id="selected-market-cap" class="font-weight-bold mb-0">Loading...</p></div>
+      <div class="col-6"><small class="text-muted">P/E Ratio</small><p id="selected-pe" class="font-weight-bold mb-0">Loading...</p></div>
+    </div>
+  </div>
+  <div class="card-footer bg-white">
+    <small class="text-muted">Updated at <?=date('Y-m-d H:i:s')?> CST</small>
+  </div>
+</div>
+        <!-- AVAILABLE STOCKS -->
+        <div class="card card-outline card-primary mb-4">
           <div class="card-header border-0 d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">Selected Stock</h3>
-            <span class="badge badge-success">Live</span>
-          </div>
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <h2 class="mb-0" id="selected-symbol">AAPL</h2>
-                <p class="text-muted mb-3" id="selected-company">Apple Inc. · NASDAQ</p>
-                <div class="badge badge-light text-muted">Tech · Large Cap</div>
-              </div>
-              <div class="text-right">
-                <small class="text-muted d-block">Last Price</small>
-                <h2 class="mb-0" id="selected-price">$191.56</h2>
-                <span class="text-success" id="selected-change">+2.48 (1.31%)</span>
-              </div>
-            </div>
-            <div class="row pt-3">
-              <div class="col-6">
-                <small class="text-muted">Open</small>
-                <p class="font-weight-bold mb-3" id="selected-open">$189.20</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">Previous Close</small>
-                <p class="font-weight-bold mb-3" id="selected-prev-close">$189.08</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">Day Range</small>
-                <p class="font-weight-bold mb-3" id="selected-day-range">$187.42 - $193.05</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">52W Range</small>
-                <p class="font-weight-bold mb-3" id="selected-52w-range">$129.04 - $199.62</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">Volume</small>
-                <p class="font-weight-bold mb-3" id="selected-volume">54.2M</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">Avg Volume</small>
-                <p class="font-weight-bold mb-3" id="selected-avg-volume">62.8M</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">Market Cap</small>
-                <p class="font-weight-bold mb-0" id="selected-market-cap">$2.99T</p>
-              </div>
-              <div class="col-6">
-                <small class="text-muted">P/E Ratio</small>
-                <p class="font-weight-bold mb-0" id="selected-pe">28.3x</p>
-              </div>
-            </div>
-          </div>
-          <div class="card-footer bg-white">
-            <small class="text-muted">Updated just now · next earnings Oct 29, 2024</small>
-          </div>
-        </div>
-      </div>
-      <div class="col-xl-8">
-        <div class="card card-outline card-primary mb-4 h-100">
-          <div class="card-header border-0">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center">
-              <div class="d-flex flex-column flex-md-row align-items-md-center">
-                <h3 class="card-title mb-0 mr-md-3">Price Action</h3>
-                <div class="btn-group btn-group-sm mt-3 mt-md-0" role="group" aria-label="Chart type">
-                  <button type="button" class="btn btn-outline-primary active" data-chart-type="line">Line</button>
-                  <button type="button" class="btn btn-outline-primary" data-chart-type="candlestick">Candlesticks</button>
-                </div>
-              </div>
-              <div class="btn-group btn-group-sm mt-3 mt-lg-0" role="group" aria-label="Chart range">
-                <button type="button" class="btn btn-outline-primary active" data-range="1D">1D</button>
-                <button type="button" class="btn btn-outline-primary" data-range="5D">5D</button>
-                <button type="button" class="btn btn-outline-primary" data-range="1M">1M</button>
-                <button type="button" class="btn btn-outline-primary" data-range="1Y">1Y</button>
-              </div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="position-relative chart-wrapper" style="height:320px;">
-              <canvas id="selectedStockLineChart"></canvas>
-              <div id="selectedStockCandleChart" class="candlestick-placeholder d-none">
-                <div class="chart-placeholder-candles">
-                  <div class="candle candle-up" style="height:55%;"><span class="wick" style="top:-25%; bottom:-20%;"></span></div>
-                  <div class="candle candle-down" style="height:35%;"><span class="wick" style="top:-35%; bottom:-10%;"></span></div>
-                  <div class="candle candle-up" style="height:68%;"><span class="wick" style="top:-20%; bottom:-25%;"></span></div>
-                  <div class="candle candle-up" style="height:72%;"><span class="wick" style="top:-18%; bottom:-15%;"></span></div>
-                  <div class="candle candle-down" style="height:48%;"><span class="wick" style="top:-28%; bottom:-18%;"></span></div>
-                  <div class="candle candle-up" style="height:76%;"><span class="wick" style="top:-22%; bottom:-30%;"></span></div>
-                  <div class="candle candle-up" style="height:66%;"><span class="wick" style="top:-30%; bottom:-25%;"></span></div>
-                  <div class="candle candle-down" style="height:42%;"><span class="wick" style="top:-26%; bottom:-12%;"></span></div>
-                  <div class="candle candle-up" style="height:78%;"><span class="wick" style="top:-24%; bottom:-35%;"></span></div>
-                  <div class="candle candle-up" style="height:84%;"><span class="wick" style="top:-20%; bottom:-28%;"></span></div>
-                  <div class="candle candle-up" style="height:88%;"><span class="wick" style="top:-15%; bottom:-32%;"></span></div>
-                </div>
-                <div class="chart-placeholder-axis text-muted small">
-                  <span>09:30</span>
-                  <span>11:00</span>
-                  <span>12:30</span>
-                  <span>14:00</span>
-                  <span>15:30</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="card-footer bg-white">
-            <div class="row">
-              <div class="col-md-4 col-12 mb-2 mb-md-0">
-                <small class="text-muted d-block">Volume (1D)</small>
-                <span class="font-weight-bold">41.6M</span>
-              </div>
-              <div class="col-md-4 col-6">
-                <small class="text-muted d-block">VWAP</small>
-                <span class="font-weight-bold">$190.84</span>
-              </div>
-              <div class="col-md-4 col-6">
-                <small class="text-muted d-block">RSI</small>
-                <span class="font-weight-bold">58.2</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-xl-4">
-        <div class="card card-outline card-dark mb-4">
-          <div class="card-header border-0">
             <h3 class="card-title mb-0">Available Stocks</h3>
-            <div class="card-tools">
-              <button class="btn btn-tool" title="Refresh"><i class="fas fa-sync-alt"></i></button>
-            </div>
+            <button class="btn btn-tool d-none" type="button" id="refresh-stocks" aria-label="Refresh stock list"><i class="fas fa-sync-alt"></i></button>
           </div>
-          <div class="pb-0"></div>
-          <div class="list-group list-group-flush" id="available-stocks">
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">AAPL <small class="text-muted">Apple Inc.</small></h5>
-                <small class="text-muted">NASDAQ · Technology</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$191.56</span>
-                <span class="text-success">+1.31%</span>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">NVDA <small class="text-muted">NVIDIA Corp.</small></h5>
-                <small class="text-muted">NASDAQ · Technology</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$789.16</span>
-                <span class="text-success">+2.87%</span>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">MSFT <small class="text-muted">Microsoft Corp.</small></h5>
-                <small class="text-muted">NASDAQ · Technology</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$412.59</span>
-                <span class="text-success">+0.54%</span>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">TSLA <small class="text-muted">Tesla Inc.</small></h5>
-                <small class="text-muted">NASDAQ · Consumer</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$231.40</span>
-                <span class="text-danger">-0.78%</span>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">AMZN <small class="text-muted">Amazon.com Inc.</small></h5>
-                <small class="text-muted">NASDAQ · Consumer</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$148.32</span>
-                <span class="text-success">+1.10%</span>
-              </div>
-            </a>
-            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="mb-0">JPM <small class="text-muted">JPMorgan Chase</small></h5>
-                <small class="text-muted">NYSE · Financial</small>
-              </div>
-              <div class="text-right">
-                <span class="d-block font-weight-bold">$172.08</span>
-                <span class="text-danger">-0.22%</span>
-              </div>
-            </a>
+          <div id="available-stocks" class="list-group list-group-flush">
+            <div class="p-3 text-center text-muted">Loading data...</div>
           </div>
           <div class="card-footer bg-white">
-            <small class="text-muted">Screeners refreshed 5 minutes ago</small>
+            <small class="text-muted">Screeners refreshed at <?=date('Y-m-d H:i:s')?> CST</small>
           </div>
         </div>
+
+        <!-- WATCHLIST -->
         <div class="card card-outline card-info mb-4">
           <div class="card-header border-0">
             <h3 class="card-title mb-0">Pinned Watchlist</h3>
@@ -233,57 +318,66 @@ require "../lib/PAGE-top.php";
           <div class="card-body p-0">
             <ul class="list-group list-group-flush">
               <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>BTC/USD</span>
-                <span class="badge badge-success">+2.6%</span>
+                <span>BTC/USD</span><span class="badge badge-success">+2.6%</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>SPY</span>
-                <span class="badge badge-warning text-dark">+0.4%</span>
+                <span>SPY</span><span class="badge badge-warning text-dark">+0.4%</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>VIX</span>
-                <span class="badge badge-danger">-1.9%</span>
+                <span>VIX</span><span class="badge badge-danger">-1.9%</span>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
+      <!-- RIGHT COLUMN -->
       <div class="col-xl-8">
+        <!-- CHART -->
         <div class="card card-outline card-success mb-4">
+          <h3 class="card-title mb-0 text-center mt-2" id="selected-symbol-chart">Loading....</h3>
+          <div class="card-body">
+            <div id="chart"></div>
+            <div class="card-header d-flex justify-content-center align-items-center flex-wrap gap-2">
+              <div class="btn-group btn-group-sm" role="group" aria-label="Range selector" id="chart-range-buttons">
+                <button type="button" class="btn btn-outline-primary active" data-range="1D">1D</button>
+                <button type="button" class="btn btn-outline-primary" data-range="1W">1W</button>
+                <button type="button" class="btn btn-outline-primary" data-range="1M">1M</button>
+                <button type="button" class="btn btn-outline-primary" data-range="YTD">YTD</button>
+                <button type="button" class="btn btn-outline-primary" data-range="1Yr">1Yr</button>
+                <button type="button" class="btn btn-outline-primary" data-range="3Yr">3Yr</button>
+                <button type="button" class="btn btn-outline-primary" data-range="5Yr">5Yr</button>
+              </div>
+            </div>
+  </div>
+</div>
+
+       
+
+        <!-- ORDER TICKET -->
+        <div class="card card-outline card-success mb-4 mt-4">
           <div class="card-header border-0">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
               <div>
                 <h3 class="card-title mb-0">Order Ticket</h3>
-                <small class="text-muted">AAPL · Long Equity · USD · Intent <span id="order-intent-label" class="text-success">Buy</span></small>
-              </div>
-              <div class="btn-group btn-group-toggle mt-3 mt-md-0" data-role="intent-group" data-toggle="buttons">
-                <label class="btn btn-sm btn-outline-success active" data-intent="buy">
-                  <input type="radio" name="ticket-direction" autocomplete="off" value="buy" checked> Buy
-                </label>
-                <label class="btn btn-sm btn-outline-danger" data-intent="sell">
-                  <input type="radio" name="ticket-direction" autocomplete="off" value="sell"> Sell
-                </label>
+                <small class="text-muted">Long Equity · USD · Intent <span id="order-intent-label" class="text-success">Buy</span></small>
               </div>
             </div>
           </div>
           <div class="card-body">
             <ul class="nav nav-pills mb-3" id="ticket-mode-tabs" role="tablist">
               <li class="nav-item">
-                <a class="nav-link active" id="by-shares-tab" data-toggle="tab" href="#ticket-by-shares" role="tab">Buy by Shares</a>
+                <a class="nav-link active" id="by-shares-tab" data-toggle="tab" href="#ticket-by-shares" role="tab" data-mode="shares">Buy by Shares</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" id="by-dollars-tab" data-toggle="tab" href="#ticket-by-dollars" role="tab">Buy by Amount</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" id="by-units-tab" data-toggle="tab" href="#ticket-by-units" role="tab">Buy by Units</a>
+                <a class="nav-link" id="by-dollars-tab" data-toggle="tab" href="#ticket-by-dollars" role="tab" data-mode="amount">Buy by Amount</a>
               </li>
             </ul>
             <div class="tab-content" id="ticket-mode-content">
               <div class="tab-pane fade show active" id="ticket-by-shares" role="tabpanel">
                 <div class="row">
                   <div class="col-lg-7">
-                    <form>
+                    <div class="trade-input-wrapper" data-mode="shares">
                       <div class="form-row">
                         <div class="form-group col-sm-6">
                           <label for="shares-quantity">Shares</label>
@@ -291,49 +385,41 @@ require "../lib/PAGE-top.php";
                         </div>
                         <div class="form-group col-sm-6">
                           <label for="shares-limit">Limit Price</label>
-                          <input type="number" step="0.01" class="form-control" id="shares-limit" placeholder="$191.50">
+                          <input type="number" step="0.01" class="form-control" id="shares-limit" placeholder="$191.50" readonly/>
                         </div>
                       </div>
                       <div class="form-row">
                         <div class="form-group col-sm-6">
                           <label for="shares-order-type">Order Type</label>
-                          <select id="shares-order-type" class="form-control">
-                            <option>Market</option>
-                            <option>Limit</option>
-                            <option>Stop</option>
-                            <option>Stop Limit</option>
+                          <select id="shares-order-type" class="form-control" aria-readonly="true">
+                            <option selected>Market</option>
                           </select>
                         </div>
                         <div class="form-group col-sm-6">
-                          <label for="shares-time-in-force">Time in Force</label>
-                          <select id="shares-time-in-force" class="form-control">
-                            <option>Day</option>
-                            <option>GTC</option>
-                            <option>IOC</option>
-                            <option>FOK</option>
-                          </select>
+                          <label for="shares-symbol-name">Symbol</label>
+                          <input id="shares-symbol-name" name="shares-symbol-name" class="form-control" value="Loading..." readonly/>
                         </div>
                       </div>
                       <div class="form-group">
                         <label for="shares-notes">Trader Notes</label>
                         <textarea id="shares-notes" class="form-control" rows="2" placeholder="Remind yourself why you're entering"></textarea>
                       </div>
-                    </form>
+                    </div>
                   </div>
                   <div class="col-lg-5">
                     <div class="border rounded p-3 bg-light">
                       <h6 class="text-uppercase text-muted mb-3">Order Summary</h6>
                       <dl class="row mb-0 small">
                         <dt class="col-6">Mode</dt>
-                        <dd class="col-6 text-right">Shares</dd>
+                        <dd class="col-6 text-right" id="shares-summary-mode">Shares</dd>
                         <dt class="col-6">Quantity</dt>
-                        <dd class="col-6 text-right">10</dd>
+                        <dd class="col-6 text-right" id="shares-summary-quantity">—</dd>
                         <dt class="col-6">Est. Cost</dt>
-                        <dd class="col-6 text-right">$1,915.60</dd>
+                        <dd class="col-6 text-right" id="shares-summary-cost">—</dd>
                         <dt class="col-6">Fees</dt>
-                        <dd class="col-6 text-right">$1.00</dd>
+                        <dd class="col-6 text-right" id="shares-summary-fees">$1.00</dd>
                         <dt class="col-6">Buying Power After</dt>
-                        <dd class="col-6 text-right">$58,221.40</dd>
+                        <dd class="col-6 text-right" id="shares-summary-buying-power">—</dd>
                       </dl>
                     </div>
                     <div class="mt-3">
@@ -352,51 +438,47 @@ require "../lib/PAGE-top.php";
               <div class="tab-pane fade" id="ticket-by-dollars" role="tabpanel">
                 <div class="row">
                   <div class="col-lg-7">
-                    <form>
+                    <div class="trade-input-wrapper" data-mode="amount">
                       <div class="form-row">
                         <div class="form-group col-sm-6">
                           <label for="dollar-amount">Amount (USD)</label>
-                          <input type="number" step="0.01" class="form-control" id="dollar-amount" placeholder="e.g. 2,500">
+                          <input type="number" step="0.01" class="form-control" id="dollar-amount" name="dollar-amount" placeholder="e.g. 2,500">
                         </div>
                         <div class="form-group col-sm-6">
                           <label for="dollar-estimated">Estimated Shares</label>
-                          <input type="text" class="form-control" id="dollar-estimated" value="13.05" readonly>
+                          <input type="text" class="form-control" id="dollar-estimated" placeholder="13.05" name="dollar-estimated" readonly="">
                         </div>
                       </div>
                       <div class="form-row">
                         <div class="form-group col-sm-6">
                           <label for="dollar-order-type">Order Type</label>
-                          <select id="dollar-order-type" class="form-control">
-                            <option>Market</option>
-                            <option>Limit</option>
+                          <select id="dollar-order-type" class="form-control" aria-readonly="true">
+                            <option selected>Market</option>
                           </select>
                         </div>
                         <div class="form-group col-sm-6">
-                          <label for="dollar-time-in-force">Time in Force</label>
-                          <select id="dollar-time-in-force" class="form-control">
-                            <option>Day</option>
-                            <option>GTC</option>
-                          </select>
+                          <label for="dollar-symbol-name">Symbol</label>
+                          <input id="dollar-symbol-name" name="dollar-symbol-name" class="form-control" value="Loading..." readonly/>
                         </div>
                       </div>
                       <div class="form-group">
                         <label for="dollar-note">Instruction</label>
                         <input type="text" class="form-control" id="dollar-note" placeholder="Optional trade note">
                       </div>
-                    </form>
+                    </div>
                   </div>
                   <div class="col-lg-5">
                     <div class="border rounded p-3 bg-light">
                       <h6 class="text-uppercase text-muted mb-3">Order Summary</h6>
                       <dl class="row mb-0 small">
                         <dt class="col-6">Mode</dt>
-                        <dd class="col-6 text-right">Amount</dd>
+                        <dd class="col-6 text-right" id="amount-summary-mode">Amount</dd>
                         <dt class="col-6">Investing</dt>
-                        <dd class="col-6 text-right">$2,500.00</dd>
+                        <dd class="col-6 text-right" id="amount-summary-investing">—</dd>
                         <dt class="col-6">Est. Shares</dt>
-                        <dd class="col-6 text-right">13.05</dd>
+                        <dd class="col-6 text-right" id="amount-summary-est-shares">—</dd>
                         <dt class="col-6">Est. Avg Price</dt>
-                        <dd class="col-6 text-right">$191.50</dd>
+                        <dd class="col-6 text-right" id="amount-summary-avg-price">—</dd>
                       </dl>
                     </div>
                     <div class="mt-3">
@@ -410,139 +492,74 @@ require "../lib/PAGE-top.php";
                   </div>
                 </div>
               </div>
-
-              <div class="tab-pane fade" id="ticket-by-units" role="tabpanel">
-                <div class="row">
-                  <div class="col-lg-7">
-                    <form>
-                      <div class="form-row">
-                        <div class="form-group col-sm-6">
-                          <label for="unit-quantity">Units</label>
-                          <input type="number" class="form-control" id="unit-quantity" placeholder="e.g. 1">
-                        </div>
-                        <div class="form-group col-sm-6">
-                          <label for="unit-size">Unit Size</label>
-                          <select id="unit-size" class="form-control">
-                            <option>Standard Lot</option>
-                            <option>Mini Lot</option>
-                            <option>Micro Lot</option>
-                            <option>Custom</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="form-row">
-                        <div class="form-group col-sm-6">
-                          <label for="unit-order-type">Order Type</label>
-                          <select id="unit-order-type" class="form-control">
-                            <option>Market</option>
-                            <option>Limit</option>
-                            <option>Stop</option>
-                          </select>
-                        </div>
-                        <div class="form-group col-sm-6">
-                          <label for="unit-stop-loss">Stop Loss</label>
-                          <input type="number" step="0.01" class="form-control" id="unit-stop-loss" placeholder="$188.00">
-                        </div>
-                      </div>
-                      <div class="form-group">
-                        <label for="unit-notes">Strategy Notes</label>
-                        <textarea id="unit-notes" class="form-control" rows="2" placeholder="Entry catalyst, risk levels, etc."></textarea>
-                      </div>
-                    </form>
-                  </div>
-                  <div class="col-lg-5">
-                    <div class="border rounded p-3 bg-light">
-                      <h6 class="text-uppercase text-muted mb-3">Order Summary</h6>
-                      <dl class="row mb-0 small">
-                        <dt class="col-6">Mode</dt>
-                        <dd class="col-6 text-right">Units</dd>
-                        <dt class="col-6">Units</dt>
-                        <dd class="col-6 text-right">1 Standard</dd>
-                        <dt class="col-6">Notional</dt>
-                        <dd class="col-6 text-right">$19,156.00</dd>
-                        <dt class="col-6">Leverage</dt>
-                        <dd class="col-6 text-right">5×</dd>
-                      </dl>
-                    </div>
-                    <div class="mt-3">
-                      <h6 class="text-uppercase text-muted mb-2 small">Risk Controls</h6>
-                      <ul class="list-unstyled small mb-0">
-                        <li class="mb-1"><i class="fas fa-bell text-warning mr-2"></i>Price alert at $196.00</li>
-                        <li class="mb-1"><i class="fas fa-shield-alt text-success mr-2"></i>Hedging enabled</li>
-                        <li><i class="fas fa-balance-scale text-secondary mr-2"></i>Portfolio weight &lt; 8%</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-column flex-md-row">
-            <div class="text-muted small mb-3 mb-md-0">
-              <span class="mr-3"><i class="fas fa-wallet mr-1"></i>Available cash: $60,137.00</span>
-              <span><i class="fas fa-percentage mr-1"></i>Portfolio risk: 4.2%</span>
+            <div class="text-muted small mb-3 mb-md-0" data-available-cash="60137" id="available-cash-wrapper">
+              <span class="mr-3" id="available-cash-display"><i class="fas fa-wallet mr-1"></i>Available cash: $60,137.00</span>
             </div>
             <div>
               <button type="button" class="btn btn-outline-secondary mr-2" id="clear-trade-btn"><i class="fas fa-undo"></i> Clear Ticket</button>
-              <button type="button" class="btn btn-success" id="submit-trade-btn"><i class="fas fa-check"></i> Submit Buy Order</button>
+              <button type="button" class="btn btn-success" id="submit-trade-btn">Submit Buy Order</button>
             </div>
           </div>
+          <form method="post" action="<?=htmlspecialchars($_SERVER['PHP_SELF']); ?>" id="buy-order-form" class="d-none">
+            <input type="hidden" name="buy_order_submit" value="1">
+            <input type="hidden" name="order_mode" id="form-order-mode">
+            <input type="hidden" name="symbol" id="form-symbol">
+            <input type="hidden" name="quantity" id="form-quantity">
+            <input type="hidden" name="limit_price" id="form-limit-price">
+            <input type="hidden" name="amount" id="form-amount">
+            <input type="hidden" name="estimated_shares" id="form-estimated-shares">
+            <input type="hidden" name="price_snapshot" id="form-price-snapshot">
+            <input type="hidden" name="fees" id="form-fees">
+            <input type="hidden" name="note" id="form-note">
+          </form>
         </div>
 
+        <!-- RECENT ORDERS -->
         <div class="card card-outline card-primary">
           <div class="card-header border-0">
             <h3 class="card-title mb-0">Recent Buy Orders</h3>
             <span class="text-muted small">Past 24 hours</span>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-striped mb-0">
-                <thead>
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Symbol</th><th>Mode</th><th>Qty</th><th>Price</th><th>Status</th><th>Time</th></tr></thead>
+              <tbody>
+                <?php if (!empty($recentOrders)) { ?>
+                  <?php foreach ($recentOrders as $order) {
+                    $quantityValue = $order['quantity'];
+                    $modeLabel = abs($quantityValue - round($quantityValue)) > 0.0001 ? "Amount" : "Shares";
+                    $formattedQty = $quantityValue > 0 ? number_format($quantityValue, 4, '.', ',') : '—';
+                    if ($modeLabel === "Shares" && abs($quantityValue - round($quantityValue)) <= 0.0001) {
+                      $formattedQty = number_format(round($quantityValue), 0, '', ',');
+                    }
+                    $formattedPrice = $order['price'] > 0 ? '$' . number_format($order['price'], 2, '.', ',') : '—';
+                    $timeDisplay = '—';
+                    if (!empty($order['executed_at'])) {
+                      $timestamp = strtotime($order['executed_at']);
+                      if ($timestamp) {
+                        $timeDisplay = date("M d, Y H:i", $timestamp);
+                      }
+                    }
+                  ?>
+                    <tr>
+                      <td><?=htmlspecialchars($order['symbol']); ?></td>
+                      <td><?=$modeLabel; ?></td>
+                      <td><?=$formattedQty; ?></td>
+                      <td><?=$formattedPrice; ?></td>
+                      <td><span class="badge badge-success">Filled</span></td>
+                      <td><?=$timeDisplay; ?></td>
+                    </tr>
+                  <?php } ?>
+                <?php } else { ?>
                   <tr>
-                    <th>Symbol</th>
-                    <th>Mode</th>
-                    <th>Quantity</th>
-                    <th>Avg Price</th>
-                    <th>Status</th>
-                    <th>Time</th>
+                    <td colspan="6" class="text-center text-muted py-4">No buy orders in the last 24 hours.</td>
                   </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>AAPL</td>
-                    <td>Shares</td>
-                    <td>25</td>
-                    <td>$190.80</td>
-                    <td><span class="badge badge-success">Filled</span></td>
-                    <td>Today · 09:45</td>
-                  </tr>
-                  <tr>
-                    <td>NVDA</td>
-                    <td>Amount</td>
-                    <td>$1,000</td>
-                    <td>$782.10</td>
-                    <td><span class="badge badge-warning">Partial</span></td>
-                    <td>Today · 08:30</td>
-                  </tr>
-                  <tr>
-                    <td>MSFT</td>
-                    <td>Units</td>
-                    <td>1 Mini Lot</td>
-                    <td>$410.22</td>
-                    <td><span class="badge badge-secondary">Queued</span></td>
-                    <td>Yesterday · 15:12</td>
-                  </tr>
-                  <tr>
-                    <td>TSLA</td>
-                    <td>Shares</td>
-                    <td>12</td>
-                    <td>$228.55</td>
-                    <td><span class="badge badge-danger">Rejected</span></td>
-                    <td>Yesterday · 10:05</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                <?php } ?>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -550,208 +567,749 @@ require "../lib/PAGE-top.php";
 
   </div>
 </section>
-
 <style>
-  .chart-wrapper canvas {
-    width: 100% !important;
-    height: 100% !important;
+  #available-stocks a.active {
+    background-color: var(--success-bg, rgba(40,167,69,0.1));
+    border-left: 4px solid #28a745;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
   }
-  .candlestick-placeholder {
-    position: absolute;
-    inset: 0;
-    padding: 1rem 1.5rem;
-    display: flex;
-    flex-direction: column;
+  #available-stocks a:hover {
+    background-color: rgba(40,167,69,0.15);
   }
-  .candlestick-placeholder::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(to top, rgba(108, 117, 125, 0.08), rgba(108, 117, 125, 0.08) 1px, transparent 1px, transparent 48px);
-    z-index: 0;
-    pointer-events: none;
+  #available-stocks a.active #selected-symbol-lists,
+  #available-stocks a.active .font-weight-bold {
+    color: #000;
   }
-  .chart-placeholder-candles {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex: 1;
-    gap: 0.4rem;
-    z-index: 1;
-  }
-  .chart-placeholder-candles .candle {
-    flex: 1;
-    border-radius: 4px;
-    position: relative;
-    min-height: 12%;
-  }
-  .chart-placeholder-candles .candle .wick {
-    position: absolute;
-    left: 50%;
-    width: 2px;
-    transform: translateX(-50%);
-    background-color: currentColor;
-  }
-  .chart-placeholder-candles .candle-up {
-    background: rgba(40, 167, 69, 0.6);
-    color: rgba(40, 167, 69, 0.9);
-  }
-  .chart-placeholder-candles .candle-down {
-    background: rgba(220, 53, 69, 0.6);
-    color: rgba(220, 53, 69, 0.9);
-  }
-  .chart-placeholder-axis {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.75rem;
-    z-index: 1;
-    position: relative;
+  #available-stocks a.active #selected-symbol-lists {
+    font-weight: bold;
   }
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    var lineCanvas = document.getElementById('selectedStockLineChart');
-    if (!lineCanvas) { return; }
+document.addEventListener('DOMContentLoaded', function () {
+  const apiBase = "http://74.208.158.229/stock-api";
+  const symbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM','^GSPC','BTC-USD','ETH-USD'];
+  const DEFAULT_SYMBOL = 'NVDA';
 
-    var lineCtx = lineCanvas.getContext('2d');
-    var gradientHeight = lineCanvas.parentElement ? lineCanvas.parentElement.offsetHeight : 320;
-    var lineGradient = lineCtx.createLinearGradient(0, 0, 0, gradientHeight);
-    lineGradient.addColorStop(0, 'rgba(40, 167, 69, 0.4)');
-    lineGradient.addColorStop(1, 'rgba(40, 167, 69, 0)');
+  const availableList = document.getElementById("available-stocks");
+  const refreshBtn = document.getElementById("refresh-stocks");
+  const refreshIcon = refreshBtn ? refreshBtn.querySelector('i') : null;
+  const rangeButtonsWrapper = document.getElementById("chart-range-buttons");
+  const chartTitle = document.getElementById("selected-symbol-chart");
+  const chartEl = document.getElementById("chart");
+  const availableCashWrapper = document.getElementById("available-cash-wrapper");
+  const availableCash = availableCashWrapper ? Number(availableCashWrapper.getAttribute('data-available-cash') || 0) : 0;
 
-    var selectedLineChart = new Chart(lineCtx, {
-      type: 'line',
-      data: {
-        labels: ['09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30'],
-        datasets: [{
-          label: 'Price',
-          data: [187.8, 188.5, 189.1, 188.6, 189.9, 190.3, 191.4, 192.1, 191.8, 192.4, 192.9, 191.7, 191.5],
-          borderColor: '#28a745',
-          backgroundColor: lineGradient,
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.3,
-          fill: true
-        }]
-      },
-      options: {
-        maintainAspectRatio: false,
-        legend: { display: false },
-        scales: {
-          xAxes: [{
-            gridLines: { display: false },
-            ticks: { fontColor: '#6c757d' }
-          }],
-          yAxes: [{
-            gridLines: { color: 'rgba(108, 117, 125, 0.1)' },
-            ticks: { fontColor: '#6c757d', callback: function (value) { return '$' + value.toFixed(2); } }
-          }]
-        },
-        tooltips: {
-          backgroundColor: '#1e1e2d',
-          cornerRadius: 4,
-          callbacks: {
-            label: function (tooltipItem) {
-              return 'Price: $' + tooltipItem.yLabel.toFixed(2);
-            }
+  const TRADE_FEE = 1;
+  const CACHE_DURATION_MS = 60000;
+  const CHART_CACHE_DURATION_MS = 120000;
+
+  const stockDataCache = new Map();
+  const chartDataCache = new Map();
+
+  const state = {
+    currentSymbol: null,
+    currentRange: '1D',
+    livePrice: 0
+  };
+
+  let chartInstance = null;
+  let stockAbortController = null;
+  let chartAbortController = null;
+  let chartTimerInterval = null;
+  let chartTimerVisible = false;
+
+  const els = {
+    symbol: document.getElementById("selected-symbol"),
+    company: document.getElementById("selected-company"),
+    price: document.getElementById("selected-price"),
+    change: document.getElementById("selected-change"),
+    open: document.getElementById("selected-open"),
+    prevClose: document.getElementById("selected-prev-close"),
+    dayRange: document.getElementById("selected-day-range"),
+    range52: document.getElementById("selected-52w-range"),
+    volume: document.getElementById("selected-volume"),
+    avgVolume: document.getElementById("selected-avg-volume"),
+    marketCap: document.getElementById("selected-market-cap"),
+    pe: document.getElementById("selected-pe")
+  };
+
+  const summaryEls = {
+    sharesQuantity: document.getElementById("shares-summary-quantity"),
+    sharesCost: document.getElementById("shares-summary-cost"),
+    sharesFees: document.getElementById("shares-summary-fees"),
+    sharesBuyingPower: document.getElementById("shares-summary-buying-power"),
+    amountInvesting: document.getElementById("amount-summary-investing"),
+    amountEstShares: document.getElementById("amount-summary-est-shares"),
+    amountAvgPrice: document.getElementById("amount-summary-avg-price")
+  };
+
+  const priceInputs = {
+    sharesQty: document.getElementById('shares-quantity'),
+    sharesLimit: document.getElementById('shares-limit'),
+    dollarAmount: document.getElementById('dollar-amount'),
+    dollarEstimated: document.getElementById('dollar-estimated'),
+    sharesSymbol: document.getElementById('shares-symbol-name'),
+    dollarSymbol: document.getElementById('dollar-symbol-name'),
+    sharesNote: document.getElementById('shares-notes'),
+    dollarNote: document.getElementById('dollar-note')
+  };
+  const hiddenForm = document.getElementById('buy-order-form');
+  const hiddenFields = {
+    orderMode: document.getElementById('form-order-mode'),
+    symbol: document.getElementById('form-symbol'),
+    quantity: document.getElementById('form-quantity'),
+    limitPrice: document.getElementById('form-limit-price'),
+    amount: document.getElementById('form-amount'),
+    estimatedShares: document.getElementById('form-estimated-shares'),
+    priceSnapshot: document.getElementById('form-price-snapshot'),
+    fees: document.getElementById('form-fees'),
+    note: document.getElementById('form-note')
+  };
+
+  const chartRangeConfig = {
+    '1D': { period: '1d', interval: '15m' },
+    '1W': { period: '5d', interval: '30m' },
+    '1M': { period: '1mo', interval: '1d' },
+    'YTD': { period: '6mo', interval: '1d' },
+    '1Yr': { period: '1y', interval: '1d' },
+    '3Yr': { period: '3y', interval: '1wk' },
+    '5Yr': { period: '5y', interval: '1mo' }
+  };
+
+  const rangeButtons = rangeButtonsWrapper ? Array.prototype.slice.call(rangeButtonsWrapper.querySelectorAll('button[data-range]')) : [];
+
+  function formatCurrency(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return '—';
+    return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
+
+  function formatDecimal(value, digits) {
+    const num = Number(value);
+    if (!isFinite(num)) return '—';
+    return num.toFixed(typeof digits === 'number' ? digits : 2);
+  }
+
+  function fmtNum(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return '—';
+    const abs = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+    if (abs >= 1e12) return sign + (abs / 1e12).toFixed(2) + 'T';
+    if (abs >= 1e9) return sign + (abs / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return sign + (abs / 1e6).toFixed(1) + 'M';
+    return sign + abs.toLocaleString();
+  }
+
+  function clampNumber(value) {
+    return isFinite(value) ? value : 0;
+  }
+
+  function debounce(func, delay) {
+    let timeout;
+    return function () {
+      const args = arguments;
+      clearTimeout(timeout);
+      timeout = setTimeout(function () {
+        func.apply(null, args);
+      }, typeof delay === 'number' ? delay : 250);
+    };
+  }
+
+  function escapeSelector(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(value);
+    }
+    return String(value).replace(/([ !"#$%&'()*+,./:;<=>?@\[\\\]^`{|}~])/g, '\\$1');
+  }
+
+  function setActiveRangeButton(range) {
+    for (let i = 0; i < rangeButtons.length; i++) {
+      const btn = rangeButtons[i];
+      btn.classList.toggle('active', btn.getAttribute('data-range') === range);
+    }
+  }
+
+  function setActiveSymbol(symbol) {
+    if (!availableList) return;
+    const items = availableList.querySelectorAll('a[data-symbol]');
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.remove('active');
+    }
+    if (!symbol) return;
+    const selector = 'a[data-symbol="' + escapeSelector(symbol) + '"]';
+    const target = availableList.querySelector(selector);
+    if (target) target.classList.add('active');
+  }
+
+  function showChartLoadingTimer() {
+    if (!window.Swal || chartTimerVisible) return;
+    chartTimerVisible = true;
+    Swal.fire({
+      title: "Updating chart…",
+      html: "Closing in <b></b> milliseconds.",
+      timer: 2000,
+      timerProgressBar: true,
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+        const counter = Swal.getPopup().querySelector("b");
+        chartTimerInterval = setInterval(() => {
+          if (counter) {
+            const remaining = Swal.getTimerLeft();
+            counter.textContent = typeof remaining === "number" ? `${remaining}` : "0";
           }
+        }, 100);
+      },
+      willClose: () => {
+        if (chartTimerInterval) {
+          clearInterval(chartTimerInterval);
+          chartTimerInterval = null;
+        }
+        chartTimerVisible = false;
+      }
+    }).then(() => {
+      if (chartTimerInterval) {
+        clearInterval(chartTimerInterval);
+        chartTimerInterval = null;
+      }
+      chartTimerVisible = false;
+    });
+  }
+
+  function closeChartLoadingTimer() {
+    if (!window.Swal) return;
+    if (typeof Swal.isVisible === "function" && Swal.isVisible()) {
+      Swal.close();
+      return;
+    }
+    if (typeof Swal.close === "function") {
+      Swal.close();
+    }
+  }
+
+  function getActiveOrderMode() {
+    const activeLink = document.querySelector('#ticket-mode-tabs .nav-link.active');
+    const modeAttr = activeLink ? activeLink.getAttribute('data-mode') : null;
+    if (modeAttr === 'amount') return 'amount';
+    return 'shares';
+  }
+
+  function showOrderError(message) {
+    if (window.Swal && typeof Swal.fire === 'function') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Order Not Ready',
+        text: message
+      });
+    } else {
+      alert(message);
+    }
+  }
+
+  function buildOrderPayload() {
+    const mode = getActiveOrderMode();
+    const symbolInput = mode === 'shares' ? priceInputs.sharesSymbol : priceInputs.dollarSymbol;
+    const symbolFromInput = symbolInput && symbolInput.value ? symbolInput.value.trim().toUpperCase() : '';
+    const symbol = (state.currentSymbol || '').toUpperCase() || symbolFromInput;
+    const livePrice = clampNumber(state.livePrice);
+    const limitPriceRaw = priceInputs.sharesLimit ? Number(priceInputs.sharesLimit.value) : 0;
+    const limitPrice = limitPriceRaw > 0 ? limitPriceRaw : livePrice;
+    const sharesNote = priceInputs.sharesNote ? priceInputs.sharesNote.value.trim() : '';
+    const amountNote = priceInputs.dollarNote ? priceInputs.dollarNote.value.trim() : '';
+
+    if (!symbol) {
+      showOrderError('Please select a stock before submitting an order.');
+      return null;
+    }
+
+    let quantity = 0;
+    let amount = 0;
+    let note = '';
+
+    if (mode === 'shares') {
+      const qty = priceInputs.sharesQty ? Number(priceInputs.sharesQty.value) : 0;
+      if (!(qty > 0)) {
+        showOrderError('Enter the number of shares you would like to buy.');
+        return null;
+      }
+      if (!(limitPrice > 0)) {
+        showOrderError('Price information is missing. Please refresh the quote and try again.');
+        return null;
+      }
+      quantity = qty;
+      amount = quantity * limitPrice;
+      note = sharesNote;
+    } else {
+      const investAmount = priceInputs.dollarAmount ? Number(priceInputs.dollarAmount.value) : 0;
+      if (!(investAmount > 0)) {
+        showOrderError('Enter the dollar amount you would like to invest.');
+        return null;
+      }
+      if (!(livePrice > 0)) {
+        showOrderError('Live price is unavailable. Please refresh the quote and try again.');
+        return null;
+      }
+      amount = investAmount;
+      quantity = investAmount / livePrice;
+      note = amountNote;
+    }
+
+    if (!(quantity > 0)) {
+      showOrderError('Calculated share quantity must be greater than zero.');
+      return null;
+    }
+
+    return {
+      mode,
+      symbol,
+      quantity,
+      limitPrice: limitPrice > 0 ? limitPrice : livePrice,
+      amount,
+      estimatedShares: quantity,
+      priceSnapshot: livePrice,
+      fees: TRADE_FEE,
+      note
+    };
+  }
+
+  function populateHiddenForm(payload) {
+    if (!hiddenForm) {
+      showOrderError('Unable to locate the order form.');
+      return;
+    }
+    if (hiddenFields.orderMode) hiddenFields.orderMode.value = payload.mode;
+    if (hiddenFields.symbol) hiddenFields.symbol.value = payload.symbol;
+    if (hiddenFields.quantity) hiddenFields.quantity.value = payload.quantity.toFixed(4);
+    if (hiddenFields.limitPrice) hiddenFields.limitPrice.value = payload.limitPrice.toFixed(4);
+    if (hiddenFields.amount) hiddenFields.amount.value = payload.amount.toFixed(2);
+    if (hiddenFields.estimatedShares) hiddenFields.estimatedShares.value = payload.estimatedShares.toFixed(4);
+    if (hiddenFields.priceSnapshot) hiddenFields.priceSnapshot.value = payload.priceSnapshot.toFixed(4);
+    if (hiddenFields.fees) hiddenFields.fees.value = payload.fees.toFixed(2);
+    if (hiddenFields.note) hiddenFields.note.value = payload.note || '';
+
+    if (typeof hiddenForm.requestSubmit === 'function') {
+      hiddenForm.requestSubmit();
+    } else {
+      hiddenForm.submit();
+    }
+  }
+
+  const symbolsQuery = symbols.map(function (sym) { return encodeURIComponent(sym); }).join(',');
+
+  function setRefreshState(loading) {
+    if (!refreshBtn) return;
+    if (loading) {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('opacity-50');
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+    } else {
+      refreshBtn.disabled = false;
+      refreshBtn.classList.remove('opacity-50');
+      if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+      refreshBtn.classList.remove('d-none');
+    }
+  }
+
+  function renderChart(ohlcData) {
+    if (!chartEl) return;
+    if (!Array.isArray(ohlcData) || ohlcData.length === 0) {
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+      chartEl.innerHTML = "<div class='text-center text-muted py-5'>No chart data available.</div>";
+      return;
+    }
+
+    const options = {
+      series: [{ data: ohlcData }],
+      chart: { type: 'candlestick', height: 350, animations: { enabled: false }, toolbar: { show: false } },
+      xaxis: { type: 'datetime' },
+      yaxis: { tooltip: { enabled: true } }
+    };
+
+    if (!chartInstance) {
+      chartEl.innerHTML = '';
+      chartInstance = new ApexCharts(chartEl, options);
+      chartInstance.render();
+    } else {
+      chartInstance.updateOptions(options, false, true);
+    }
+  }
+
+  async function loadChart(symbol, range, options) {
+    if (!symbol || !chartEl) return;
+    const cfg = chartRangeConfig[range] || chartRangeConfig['1D'];
+    const cacheKey = symbol + "|" + cfg.period + "|" + cfg.interval;
+    const now = Date.now();
+    const forceRefresh = options && options.forceRefresh;
+
+    if (!forceRefresh && chartDataCache.has(cacheKey)) {
+      const cached = chartDataCache.get(cacheKey);
+      if (now - cached.timestamp < CHART_CACHE_DURATION_MS) {
+        renderChart(cached.data);
+        if (chartTitle) chartTitle.textContent = symbol + " Price Chart · " + range;
+        return;
+      }
+    }
+
+    if (chartAbortController) chartAbortController.abort();
+    chartAbortController = new AbortController();
+
+    try {
+      showChartLoadingTimer();
+      const url = apiBase + "/chart-history?symbol=" + encodeURIComponent(symbol) + "&period=" + cfg.period + "&interval=" + cfg.interval;
+      const response = await fetch(url, { signal: chartAbortController.signal });
+      if (!response.ok) throw new Error("Chart API responded with " + response.status);
+      const json = await response.json();
+      const raw = json && Array.isArray(json.data) ? json.data : [];
+      const data = raw.map(function (item) {
+        return { x: new Date(item.x).getTime(), y: item.y };
+      });
+      chartDataCache.set(cacheKey, { data: data, timestamp: now });
+      renderChart(data);
+      if (chartTitle) chartTitle.textContent = symbol + " Price Chart · " + range;
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      console.error('Chart load failed:', error);
+      chartEl.innerHTML = "<div class='text-center text-danger py-5'>Unable to load chart data.</div>";
+    } finally {
+      chartAbortController = null;
+      closeChartLoadingTimer();
+    }
+  }
+
+  function updateOrderEstimates() {
+    const quantity = priceInputs.sharesQty ? Number(priceInputs.sharesQty.value) : 0;
+    const limitPriceInput = priceInputs.sharesLimit ? Number(priceInputs.sharesLimit.value) : NaN;
+    const limitPrice = limitPriceInput || clampNumber(state.livePrice);
+    const amount = priceInputs.dollarAmount ? Number(priceInputs.dollarAmount.value) : 0;
+
+    const estCost = quantity > 0 && limitPrice > 0 ? quantity * limitPrice : 0;
+    const estFees = TRADE_FEE;
+    const projectedSpend = estCost > 0 ? estCost + estFees : 0;
+    const buyingPowerAfter = availableCash ? Math.max(availableCash - projectedSpend, 0) : 0;
+    const estShares = state.livePrice > 0 && amount > 0 ? amount / state.livePrice : 0;
+
+    if (summaryEls.sharesQuantity) summaryEls.sharesQuantity.textContent = quantity > 0 ? quantity.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—';
+    if (summaryEls.sharesCost) summaryEls.sharesCost.textContent = estCost > 0 ? formatCurrency(estCost) : '—';
+    if (summaryEls.sharesFees) summaryEls.sharesFees.textContent = formatCurrency(estFees);
+    if (summaryEls.sharesBuyingPower) summaryEls.sharesBuyingPower.textContent = availableCash ? formatCurrency(buyingPowerAfter) : '—';
+
+    if (summaryEls.amountInvesting) summaryEls.amountInvesting.textContent = amount > 0 ? formatCurrency(amount) : '—';
+    if (summaryEls.amountEstShares) summaryEls.amountEstShares.textContent = estShares > 0 ? estShares.toFixed(2) : '—';
+    if (summaryEls.amountAvgPrice) summaryEls.amountAvgPrice.textContent = state.livePrice > 0 ? formatCurrency(state.livePrice) : '—';
+
+    if (priceInputs.dollarEstimated) priceInputs.dollarEstimated.value = estShares > 0 ? estShares.toFixed(2) : '';
+  }
+
+  function updateUIWithStockData(data) {
+    const stock = data && data.selected_stock ? data.selected_stock : null;
+    if (!stock) return;
+
+    const metrics = stock.metrics || {};
+    const dayRange = metrics.day_range || {};
+    const range52 = metrics["52w_range"] || {};
+    const priceChange = stock.price_change || {};
+    const priceChangeAmount = Number(priceChange.amount);
+    const priceChangePct = priceChange.percentage;
+
+    state.currentSymbol = stock.ticker;
+    state.livePrice = Number(stock.last_price) || 0;
+
+    if (els.symbol) els.symbol.textContent = stock.ticker || '—';
+    if (els.company) els.company.textContent = (stock.company_name || 'Unknown') + " · " + (stock.exchange || '—');
+    if (els.price) els.price.textContent = state.livePrice ? formatCurrency(state.livePrice) : '—';
+
+    if (els.change) {
+      els.change.classList.remove('text-success', 'text-danger');
+      if (isFinite(priceChangeAmount)) {
+        els.change.classList.add(priceChangeAmount >= 0 ? 'text-success' : 'text-danger');
+        let pctText;
+        if (typeof priceChangePct === 'string') {
+          pctText = priceChangePct;
+        } else if (isFinite(Number(priceChangePct))) {
+          pctText = Number(priceChangePct).toFixed(2) + "%";
+        } else {
+          pctText = '—';
+        }
+        const formattedAmount = (priceChangeAmount >= 0 ? '+' : '') + formatDecimal(priceChangeAmount);
+        els.change.textContent = formattedAmount + " (" + pctText + ")";
+      } else {
+        els.change.textContent = '—';
+      }
+    }
+
+    if (els.open) els.open.textContent = metrics.open ? formatCurrency(metrics.open) : '—';
+    if (els.prevClose) els.prevClose.textContent = metrics.previous_close ? formatCurrency(metrics.previous_close) : '—';
+    if (els.dayRange) {
+      if (isFinite(dayRange.low) && isFinite(dayRange.high)) {
+        els.dayRange.textContent = formatCurrency(dayRange.low) + " - " + formatCurrency(dayRange.high);
+      } else {
+        els.dayRange.textContent = '—';
+      }
+    }
+    if (els.range52) {
+      if (isFinite(range52.low) && isFinite(range52.high)) {
+        els.range52.textContent = formatCurrency(range52.low) + " - " + formatCurrency(range52.high);
+      } else {
+        els.range52.textContent = '—';
+      }
+    }
+    if (els.volume) els.volume.textContent = fmtNum(metrics.volume);
+    if (els.avgVolume) els.avgVolume.textContent = fmtNum(metrics.avg_volume);
+    if (els.marketCap) els.marketCap.textContent = metrics.market_cap || '—';
+    if (els.pe) els.pe.textContent = metrics.pe_ratio || '—';
+
+    if (priceInputs.sharesSymbol) priceInputs.sharesSymbol.value = stock.ticker || '';
+    if (priceInputs.dollarSymbol) priceInputs.dollarSymbol.value = stock.ticker || '';
+    if (priceInputs.sharesLimit) priceInputs.sharesLimit.value = state.livePrice ? state.livePrice.toFixed(2) : '';
+
+    updateOrderEstimates();
+    setActiveSymbol(stock.ticker);
+    loadChart(stock.ticker, state.currentRange);
+  }
+
+  async function fetchStock(symbol, options) {
+    const forceRefresh = options && options.forceRefresh;
+    const now = Date.now();
+
+    if (!forceRefresh && stockDataCache.has(symbol)) {
+      const cached = stockDataCache.get(symbol);
+      if (now - cached.timestamp < CACHE_DURATION_MS) {
+        updateUIWithStockData(cached.data);
+        return;
+      }
+    }
+
+    if (stockAbortController) stockAbortController.abort();
+    stockAbortController = new AbortController();
+
+    try {
+      const response = await fetch(apiBase + "/buy-sell?symbol=" + encodeURIComponent(symbol), { signal: stockAbortController.signal });
+      if (!response.ok) throw new Error("Stock API responded with " + response.status);
+      const data = await response.json();
+      if (!data || !data.selected_stock) throw new Error("Invalid stock response");
+      stockDataCache.set(symbol, { data: data, timestamp: now });
+      updateUIWithStockData(data);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      console.error('Stock load failed:', error);
+      if (els.symbol) els.symbol.textContent = symbol;
+      if (els.company) els.company.textContent = 'Unable to load data.';
+    } finally {
+      stockAbortController = null;
+    }
+  }
+
+  async function loadAvailableStocks(options) {
+    if (!availableList) return;
+    const forceRefresh = options && options.forceRefresh;
+
+    if (forceRefresh || !availableList.getAttribute('data-loaded')) {
+      availableList.innerHTML = "<div class='p-3 text-center text-muted'>Loading data...</div>";
+    }
+
+    setRefreshState(true);
+
+    try {
+      const response = await fetch(apiBase + "/buy-sell-info?symbols=" + symbolsQuery);
+      if (!response.ok) throw new Error("List API responded with " + response.status);
+      const data = await response.json();
+      availableList.innerHTML = "";
+      const fragment = document.createDocumentFragment();
+
+      data.forEach(function (stock) {
+        if (!stock || stock.error) return;
+        const changePctValue = Number(stock.change_pct);
+        const isUp = isFinite(changePctValue) ? changePctValue >= 0 : false;
+        const changeClass = isUp ? 'text-success' : 'text-danger';
+        const changePct = isFinite(changePctValue) ? (isUp ? '+' : '') + changePctValue.toFixed(2) + '%' : '—';
+        const currentPrice = Number(stock.current_price);
+        let tagsText;
+        if (Array.isArray(stock.tags)) {
+          tagsText = stock.tags.filter(Boolean).join(', ');
+        } else {
+          tagsText = stock.tags || '';
+        }
+
+        const item = document.createElement('a');
+        item.href = '#';
+        item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+        item.setAttribute('data-symbol', stock.symbol);
+
+        item.innerHTML = `
+          <div>
+            <h5 class="mb-0"><span class="mr-3">${stock.symbol}</span> <small class="text-muted">${stock.company_name || ''}</small></h5>
+            <small class="text-muted">${stock.exchange || ''}${tagsText ? ' · ' + tagsText : ''}</small>
+          </div>
+          <div class="text-right">
+            <span class="d-block font-weight-bold">${isFinite(currentPrice) ? formatCurrency(currentPrice) : '—'}</span>
+            <span class="${changeClass}">${changePct}</span>
+          </div>
+        `;
+        fragment.appendChild(item);
+      });
+
+      if (!fragment.childNodes.length) {
+        availableList.innerHTML = "<div class='p-3 text-center text-muted'>No stocks available.</div>";
+      } else {
+        availableList.appendChild(fragment);
+        availableList.setAttribute('data-loaded', '1');
+        setActiveSymbol(state.currentSymbol);
+      }
+    } catch (error) {
+      console.error('Failed to load stock list:', error);
+      availableList.innerHTML = "<div class='p-3 text-center text-danger'>Unable to load stock list.</div>";
+    } finally {
+      setRefreshState(false);
+    }
+  }
+
+  function loadStock(symbol, options) {
+    if (!symbol) return;
+    state.currentSymbol = symbol;
+    fetchStock(symbol, options);
+  }
+
+  const debouncedLoadStock = debounce(function (symbol) {
+    loadStock(symbol);
+  }, 250);
+
+  if (availableList) {
+    availableList.addEventListener('click', function (event) {
+      const link = event.target.closest('a[data-symbol]');
+      if (!link) return;
+      event.preventDefault();
+      const symbol = link.getAttribute('data-symbol');
+      debouncedLoadStock(symbol);
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', function () {
+      stockDataCache.clear();
+      chartDataCache.clear();
+      if (availableList) availableList.removeAttribute('data-loaded');
+      loadAvailableStocks({ forceRefresh: true });
+      if (state.currentSymbol) {
+        loadStock(state.currentSymbol, { forceRefresh: true });
+        loadChart(state.currentSymbol, state.currentRange, { forceRefresh: true });
+      }
+    });
+  }
+
+  if (rangeButtonsWrapper) {
+    rangeButtonsWrapper.addEventListener('click', function (event) {
+      const button = event.target.closest('button[data-range]');
+      if (!button) return;
+      const range = button.getAttribute('data-range');
+      if (!range) return;
+      state.currentRange = range;
+      setActiveRangeButton(range);
+      if (state.currentSymbol) {
+        loadChart(state.currentSymbol, range);
+      }
+    });
+  }
+
+  ['input', 'change'].forEach(function (evt) {
+    if (priceInputs.sharesQty) priceInputs.sharesQty.addEventListener(evt, updateOrderEstimates);
+    if (priceInputs.sharesLimit) priceInputs.sharesLimit.addEventListener(evt, updateOrderEstimates);
+    if (priceInputs.dollarAmount) priceInputs.dollarAmount.addEventListener(evt, updateOrderEstimates);
+  });
+
+  const clearButton = document.getElementById('clear-trade-btn');
+  if (clearButton) {
+    clearButton.addEventListener('click', function () {
+      if (priceInputs.sharesQty) priceInputs.sharesQty.value = '';
+      if (priceInputs.sharesLimit) priceInputs.sharesLimit.value = state.livePrice ? state.livePrice.toFixed(2) : '';
+      if (priceInputs.dollarAmount) priceInputs.dollarAmount.value = '';
+      if (priceInputs.dollarEstimated) priceInputs.dollarEstimated.value = '';
+      updateOrderEstimates();
+    });
+  }
+
+  const submitButton = document.getElementById('submit-trade-btn');
+  if (submitButton) {
+    submitButton.addEventListener('click', function () {
+      const payload = buildOrderPayload();
+      if (!payload) {
+        return;
+      }
+
+      const previewLines = [
+        "Mode: " + (payload.mode === 'shares' ? 'Buy by Shares' : 'Buy by Amount'),
+        "Symbol: " + payload.symbol,
+        "Quantity: " + payload.quantity.toFixed(4),
+        "Price: " + formatCurrency(payload.limitPrice),
+        "Estimated Cost: " + formatCurrency(payload.quantity * payload.limitPrice),
+        "Fees: " + formatCurrency(payload.fees)
+      ];
+      if (payload.mode === 'amount') {
+        previewLines.splice(3, 0, "Investing: " + formatCurrency(payload.amount));
+      }
+      previewLines.push("Note: " + (payload.note ? payload.note : '—'));
+
+      const previewHtml = "<pre class='text-left mb-0'>" + previewLines.join("\n") + "</pre>";
+
+      if (window.Swal && typeof window.Swal.fire === 'function') {
+        Swal.fire({
+          icon: 'info',
+          title: 'Preview Order',
+          html: previewHtml,
+          showCancelButton: true,
+          confirmButtonText: 'Confirm Order',
+          cancelButtonText: 'Cancel'
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            populateHiddenForm(payload);
+          }
+        });
+      } else {
+        const confirmed = window.confirm(previewLines.join("\n"));
+        if (confirmed) {
+          populateHiddenForm(payload);
         }
       }
     });
+  }
 
-    var candlestickPlaceholder = document.getElementById('selectedStockCandleChart');
-    var chartTypeButtons = document.querySelectorAll('[data-chart-type]');
-    var activeChartType = 'line';
+  setActiveRangeButton(state.currentRange);
+  updateOrderEstimates();
 
-    function setChartType(type) {
-      activeChartType = type;
-      if (type === 'line') {
-        lineCanvas.classList.remove('d-none');
-        candlestickPlaceholder.classList.add('d-none');
-        selectedLineChart.resize();
-      } else {
-        lineCanvas.classList.add('d-none');
-        candlestickPlaceholder.classList.remove('d-none');
-      }
-    }
-
-    chartTypeButtons.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var targetType = btn.getAttribute('data-chart-type');
-        if (targetType === activeChartType) { return; }
-        chartTypeButtons.forEach(function (item) { item.classList.remove('active'); });
-        btn.classList.add('active');
-        setChartType(targetType);
-      });
-    });
-
-    setChartType(activeChartType);
-
-    var rangeButtons = document.querySelectorAll('[data-range]');
-    rangeButtons.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        rangeButtons.forEach(function (item) { item.classList.remove('active'); });
-        btn.classList.add('active');
-      });
-    });
-
-    var intentGroups = document.querySelectorAll('[data-role="intent-group"]');
-    var submitButton = document.getElementById('submit-trade-btn');
-    var orderIntentLabel = document.getElementById('order-intent-label');
-    var pageIntentLabel = document.getElementById('page-intent-label');
-    var intentState = 'buy';
-
-    function applyIntent(intent) {
-      intentState = intent;
-      intentGroups.forEach(function (group) {
-        group.querySelectorAll('label[data-intent]').forEach(function (label) {
-          var labelIntent = label.getAttribute('data-intent');
-          var isActive = labelIntent === intent;
-          label.classList.toggle('active', isActive);
-          if (labelIntent === 'buy') {
-            label.classList.toggle('btn-success', isActive);
-            label.classList.toggle('btn-outline-success', !isActive);
-          } else {
-            label.classList.toggle('btn-danger', isActive);
-            label.classList.toggle('btn-outline-danger', !isActive);
-          }
-          var input = label.querySelector('input');
-          if (input) { input.checked = isActive; }
-        });
-      });
-
-      if (submitButton) {
-        submitButton.textContent = intent === 'buy' ? 'Submit Buy Order' : 'Submit Sell Order';
-        submitButton.classList.toggle('btn-success', intent === 'buy');
-        submitButton.classList.toggle('btn-danger', intent === 'sell');
-      }
-
-      if (orderIntentLabel) {
-        orderIntentLabel.textContent = intent === 'buy' ? 'Buy' : 'Sell';
-        orderIntentLabel.classList.toggle('text-success', intent === 'buy');
-        orderIntentLabel.classList.toggle('text-danger', intent === 'sell');
-      }
-
-      if (pageIntentLabel) {
-        pageIntentLabel.textContent = intent === 'buy' ? 'Buy' : 'Sell';
-        pageIntentLabel.classList.toggle('text-success', intent === 'buy');
-        pageIntentLabel.classList.toggle('text-danger', intent === 'sell');
-      }
-    }
-
-    intentGroups.forEach(function (group) {
-      group.addEventListener('click', function (event) {
-        var label = event.target.closest('label[data-intent]');
-        if (!label) { return; }
-        var intent = label.getAttribute('data-intent');
-        applyIntent(intent);
-      });
-    });
-
-    applyIntent(intentState);
+  loadAvailableStocks().finally(function () {
+    loadStock(DEFAULT_SYMBOL);
   });
+});
 </script>
+
+<?php if ($tradeAlert) { ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var alertConfig = {
+    icon: <?=json_encode($tradeAlert["type"] ?? "info")?>,
+    title: <?=json_encode($tradeAlert["title"] ?? "Notice")?>,
+    text: <?=json_encode($tradeAlert["text"] ?? "")?>
+  };
+  if (window.Swal && typeof Swal.fire === 'function') {
+    Swal.fire(alertConfig).then(function () {
+      if (alertConfig.icon === 'success') {
+        window.location.href = window.location.href;
+      }
+    });
+  } else {
+    alert(alertConfig.title + "\n\n" + alertConfig.text);
+    if (alertConfig.icon === 'success') {
+      window.location.href = window.location.href;
+    }
+  }
+});
+</script>
+<?php } ?>
 
 <?php require "../lib/PAGE-bottom.php"; ?>

@@ -180,32 +180,6 @@ require PATH_LIB . "PAGE-top.php"; ?>
             </ul>
           </div>
         </div>
-
-        <div class="card card-outline card-warning">
-          <div class="card-header">
-            <h3 class="card-title mb-0">News &amp; Insights</h3>
-          </div>
-          <div class="card-body">
-            <div class="media mb-3">
-              <div class="media-body">
-                <h5 class="mt-0 mb-1">Fed Signals Gradual Rate Cuts</h5>
-                <p class="text-muted mb-0">Bond yields slip as markets price in two cuts by year-end.</p>
-              </div>
-            </div>
-            <div class="media mb-3">
-              <div class="media-body">
-                <h5 class="mt-0 mb-1">Crypto Rally Continues</h5>
-                <p class="text-muted mb-0">Bitcoin extends gains amid institutional inflows.</p>
-              </div>
-            </div>
-            <div class="media">
-              <div class="media-body">
-                <h5 class="mt-0 mb-1">Energy Stocks Under Pressure</h5>
-                <p class="text-muted mb-0">Crude oil dips below $70 as supply concerns ease.</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>

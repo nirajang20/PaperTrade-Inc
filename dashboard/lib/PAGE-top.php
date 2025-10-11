@@ -1,4 +1,6 @@
 <?php
+// set time zone
+date_default_timezone_set('America/Chicago');
 // (A) LOGIN CHECK
 $_ISADMIN = isset($_SESSION["user"]);
 if (!$_ISADMIN && !isset($_ISLOGIN)) {
@@ -19,8 +21,6 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/fontawesome-free/css/all.min.css">
-  <!-- Ionicons -->
-  <link rel="stylesheet" href="<?URL_HOST?>dist/css/ionicons.min.css">
   <!-- Tempusdominus Bootstrap 4 -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
   <!-- iCheck -->
@@ -35,6 +35,20 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/daterangepicker/daterangepicker.css">
   <!-- summernote -->
   <link rel="stylesheet" href="<?=URL_HOST?>plugins/summernote/summernote-bs4.min.css">
+  <!-- Toastr -->
+  <link rel="stylesheet" href="<?=URL_HOST?>plugins/toastr/toastr.min.css">
+  <script src="<?=URL_HOST?>plugins/toastr/toastr.min.js"></script>
+  <!-- jQuery -->
+  <script src="<?=URL_HOST?>plugins/jquery/jquery.min.js"></script>
+
+  <!-- Sweet Alert-->
+  <script src="
+https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js
+"></script>
+<link href="
+https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
+" rel="stylesheet">
+
 
   <!-- favicon   -->
        <link rel="icon" href="<?=URL_HOST?>dist/img/favicon.png" />
@@ -334,7 +348,7 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
           </p>
         </a>
         <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="<?=URL_HOST?>profile.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Profile</p></a></li>
+          <li class="nav-item"><a href="<?=URL_HOST?>my-account/profile.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Profile</p></a></li>
           <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Settings</p></a></li>
           <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Notifications</p></a></li>
           <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="far fa-circle nav-icon"></i><p>Logout</p></a></li>
