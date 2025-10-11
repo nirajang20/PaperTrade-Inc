@@ -622,12 +622,22 @@ $availableCashValue = isset($active_user["user_balance"]) ? (float) $active_user
   #available-stocks a:hover {
     background-color: rgba(40,167,69,0.15);
   }
-  #available-stocks a.active #selected-symbol-lists,
-  #available-stocks a.active .font-weight-bold {
-    color: #000;
+
+  /* Ensure the h5 title (and its span/small) in an active item is black */
+  #available-stocks a.active h5,
+  #available-stocks a.active h5 span,
+  #available-stocks a.active h5 small {
+    color: #000 !important;
   }
-  #available-stocks a.active #selected-symbol-lists {
-    font-weight: bold;
+
+  /* Slightly bolder title when active */
+  #available-stocks a.active h5 {
+    font-weight: 700;
+  }
+
+  /* Ensure the right-side price (e.g. <span class="d-block font-weight-bold">) is black when item is active */
+  #available-stocks a.active .d-block.font-weight-bold {
+    color: #000 !important;
   }
 </style>
 
@@ -662,8 +672,63 @@ document.addEventListener('DOMContentLoaded', function () {
   let chartInstance = null;
   let stockAbortController = null;
   let chartAbortController = null;
-  let chartTimerInterval = null;
-  let chartTimerVisible = false;
+  let loadingSwalCount = 0;
+  let loadingSwalTimerInterval = null;
+
+  function openLoadingSwal(config) {
+    if (!window.Swal) return false;
+
+    loadingSwalCount += 1;
+    if (loadingSwalCount > 1) {
+      return false;
+    }
+
+    const userConfig = config ? Object.assign({}, config) : {};
+    const userDidOpen = typeof userConfig.didOpen === 'function' ? userConfig.didOpen : null;
+    const userWillClose = typeof userConfig.willClose === 'function' ? userConfig.willClose : null;
+
+    const allowOutsideClickValue = userConfig.allowOutsideClick;
+    const showConfirmButtonValue = userConfig.showConfirmButton;
+    const swalConfig = Object.assign({}, userConfig, {
+      title: userConfig.title || "Loading…",
+      allowOutsideClick: (typeof allowOutsideClickValue === 'boolean' || typeof allowOutsideClickValue === 'function') ? allowOutsideClickValue : false,
+      showConfirmButton: typeof showConfirmButtonValue === 'boolean' ? showConfirmButtonValue : false,
+      didOpen: (popup) => {
+        if (typeof Swal.showLoading === 'function') {
+          Swal.showLoading();
+        }
+        if (typeof userDidOpen === 'function') {
+          userDidOpen(popup);
+        }
+      },
+      willClose: (popup) => {
+        if (loadingSwalTimerInterval) {
+          clearInterval(loadingSwalTimerInterval);
+          loadingSwalTimerInterval = null;
+        }
+        if (typeof userWillClose === 'function') {
+          userWillClose(popup);
+        }
+      }
+    });
+
+    Swal.fire(swalConfig);
+    return true;
+  }
+
+  function closeLoadingSwal() {
+    if (!window.Swal || loadingSwalCount === 0) return;
+    loadingSwalCount -= 1;
+    if (loadingSwalCount === 0) {
+      if (loadingSwalTimerInterval) {
+        clearInterval(loadingSwalTimerInterval);
+        loadingSwalTimerInterval = null;
+      }
+      if (typeof Swal.close === 'function') {
+        Swal.close();
+      }
+    }
+  }
 
   const els = {
     symbol: document.getElementById("selected-symbol"),
@@ -790,50 +855,35 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function showChartLoadingTimer() {
-    if (!window.Swal || chartTimerVisible) return;
-    chartTimerVisible = true;
-    Swal.fire({
+    const opened = openLoadingSwal({
       title: "Updating chart…",
       html: "Closing in <b></b> milliseconds.",
       timer: 2000,
       timerProgressBar: true,
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-        const counter = Swal.getPopup().querySelector("b");
-        chartTimerInterval = setInterval(() => {
-          if (counter) {
-            const remaining = Swal.getTimerLeft();
-            counter.textContent = typeof remaining === "number" ? `${remaining}` : "0";
-          }
+      didOpen: (popup) => {
+        const counter = popup ? popup.querySelector("b") : null;
+        loadingSwalTimerInterval = setInterval(() => {
+          if (!counter) return;
+          const remaining = typeof Swal.getTimerLeft === 'function' ? Swal.getTimerLeft() : null;
+          counter.textContent = typeof remaining === "number" ? `${remaining}` : "0";
         }, 100);
       },
       willClose: () => {
-        if (chartTimerInterval) {
-          clearInterval(chartTimerInterval);
-          chartTimerInterval = null;
+        if (loadingSwalTimerInterval) {
+          clearInterval(loadingSwalTimerInterval);
+          loadingSwalTimerInterval = null;
         }
-        chartTimerVisible = false;
       }
-    }).then(() => {
-      if (chartTimerInterval) {
-        clearInterval(chartTimerInterval);
-        chartTimerInterval = null;
-      }
-      chartTimerVisible = false;
     });
+
+    if (!opened && loadingSwalTimerInterval) {
+      clearInterval(loadingSwalTimerInterval);
+      loadingSwalTimerInterval = null;
+    }
   }
 
   function closeChartLoadingTimer() {
-    if (!window.Swal) return;
-    if (typeof Swal.isVisible === "function" && Swal.isVisible()) {
-      Swal.close();
-      return;
-    }
-    if (typeof Swal.close === "function") {
-      Swal.close();
-    }
+    closeLoadingSwal();
   }
 
   function getActiveOrderMode() {
@@ -1116,23 +1166,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateOrderEstimates();
     setActiveSymbol(stock.ticker);
-    loadChart(stock.ticker, state.currentRange);
+    return loadChart(stock.ticker, state.currentRange);
   }
 
   async function fetchStock(symbol, options) {
     const forceRefresh = options && options.forceRefresh;
     const now = Date.now();
+    let loaderActivated = false;
 
     if (!forceRefresh && stockDataCache.has(symbol)) {
       const cached = stockDataCache.get(symbol);
       if (now - cached.timestamp < CACHE_DURATION_MS) {
-        updateUIWithStockData(cached.data);
-        return;
+        return updateUIWithStockData(cached.data);
       }
     }
 
     if (stockAbortController) stockAbortController.abort();
     stockAbortController = new AbortController();
+    loaderActivated = true;
+    openLoadingSwal({
+      title: "Loading " + (symbol ? symbol.toUpperCase() + " data…" : "stock data…")
+    });
 
     try {
       const response = await fetch(apiBase + "/buy-sell?symbol=" + encodeURIComponent(symbol), { signal: stockAbortController.signal });
@@ -1140,7 +1194,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const data = await response.json();
       if (!data || !data.selected_stock) throw new Error("Invalid stock response");
       stockDataCache.set(symbol, { data: data, timestamp: now });
-      updateUIWithStockData(data);
+      return updateUIWithStockData(data);
     } catch (error) {
       if (error.name === 'AbortError') return;
       console.error('Stock load failed:', error);
@@ -1148,18 +1202,24 @@ document.addEventListener('DOMContentLoaded', function () {
       if (els.company) els.company.textContent = 'Unable to load data.';
     } finally {
       stockAbortController = null;
+      if (loaderActivated) {
+        closeLoadingSwal();
+      }
     }
   }
 
   async function loadAvailableStocks(options) {
     if (!availableList) return;
     const forceRefresh = options && options.forceRefresh;
+    let loaderActivated = false;
 
     if (forceRefresh || !availableList.getAttribute('data-loaded')) {
       availableList.innerHTML = "<div class='p-3 text-center text-muted'>Loading data...</div>";
     }
 
     setRefreshState(true);
+    loaderActivated = true;
+    openLoadingSwal({ title: "Loading available stocks…" });
 
     try {
       const response = await fetch(apiBase + "/buy-sell-info?symbols=" + symbolsQuery);
@@ -1212,13 +1272,16 @@ document.addEventListener('DOMContentLoaded', function () {
       availableList.innerHTML = "<div class='p-3 text-center text-danger'>Unable to load stock list.</div>";
     } finally {
       setRefreshState(false);
+      if (loaderActivated) {
+        closeLoadingSwal();
+      }
     }
   }
 
   function loadStock(symbol, options) {
     if (!symbol) return;
     state.currentSymbol = symbol;
-    fetchStock(symbol, options);
+    return fetchStock(symbol, options);
   }
 
   const debouncedLoadStock = debounce(function (symbol) {
@@ -1327,8 +1390,14 @@ document.addEventListener('DOMContentLoaded', function () {
   setActiveRangeButton(state.currentRange);
   updateOrderEstimates();
 
-  loadAvailableStocks().finally(function () {
-    loadStock(DEFAULT_SYMBOL);
+  openLoadingSwal({ title: "Loading trade data…" });
+  Promise.all([
+    loadAvailableStocks(),
+    loadStock(DEFAULT_SYMBOL)
+  ]).catch(function () {
+    // Initial data load failures are surfaced via inline UI messaging.
+  }).finally(function () {
+    closeLoadingSwal();
   });
 });
 </script>

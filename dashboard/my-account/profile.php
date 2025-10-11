@@ -158,7 +158,7 @@ if (isset($active_user) && is_array($active_user)) {
           <div class="card-footer pt-5 profile-stats">
             <div class="row mt-3">
               <div class="col-sm-4 col-12 stat mb-3 mb-sm-0 text-center">
-                <h5 id="profile-last-login"><?=$active_user['last_login']?></h5>
+                <h5 id="profile-last-login"><?=$active_user['last_login']?> CST</h5>
                 <span>Last Login</span>
               </div>
               <div class="col-sm-4 col-12 stat mb-3 mb-sm-0 text-center">
@@ -235,7 +235,7 @@ if (isset($active_user) && is_array($active_user)) {
                     </div>
                   </div>
                   <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center align-items-start">
-                    <small class="text-muted mb-3 mb-md-0">Last updated: <span id="personal-last-updated"><?=$active_user['last_updated']?></span></small>
+                    <small class="text-muted mb-3 mb-md-0">Last updated: <span id="personal-last-updated"><?=$active_user['last_updated']?> CST</span></small>
                     <button type="submit" name="info_update" class="btn btn-primary">
                       <i class="fas fa-save mr-1"></i>Save Changes
                     </button>
@@ -317,7 +317,7 @@ if (isset($active_user) && is_array($active_user)) {
               </li>
               <li class="d-flex justify-content-between mb-2">
                 <span class="text-muted text-uppercase small">Last Login</span>
-                <span class="value" id="summary-last-login"><?=$active_user['last_login']?></span>
+                <span class="value" id="summary-last-login"><?=$active_user['last_login']?> CST</span>
               </li>
               <li class="d-flex justify-content-between mb-2">
                 <span class="text-muted text-uppercase small">Email</span>

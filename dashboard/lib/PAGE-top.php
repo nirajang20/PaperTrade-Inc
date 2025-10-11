@@ -244,7 +244,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
       <?php if ($_ISADMIN) { ?>
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
-    <a href="index3.html" class="brand-link">
+    <a href="<?=URL_HOST?>" class="brand-link">
       <!-- <img src="<?=URL_HOST?>dist/img/logo-horizontal.png" alt="PaperTrade Logo" class="brand-image img-circle elevation-3" style="opacity: .8"> -->
       <span class="brand-text font-weight-light"><img src="<?=URL_HOST?>dist/img/logo-horizontal.png" height="40%" width="100%"></span>
     </a>
@@ -257,7 +257,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
           <img src="<?=URL_HOST?>dist/img/<?=$active_user['avatar']?>" class="img-circle elevation-2" alt="User Image">
         </div>
         <div class="info">
-          <a href="#" class="d-block"><?=$active_user['user_name']?></a>
+          <a href="<?=URL_HOST?>my-account/profile.php" class="d-block"><?=$active_user['user_name']?></a>
         </div>
       </div>
       <!-- Sidebar Menu -->
@@ -282,10 +282,11 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
         </p>
       </a>
       <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/buy.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Buy Stocks</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>trading/buy.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Buy Stocks/Crypto</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>trading/sell.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Sell Stocks/Crypto</p></a></li>
         <li class="nav-item"><a href="<?=URL_HOST?>trading/reminder.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Reminder</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>search.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Search Stocks</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>orders.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Orders</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>trading/search.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Search Stocks</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>trading/transactions.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transactions</p></a></li>
       </ul>
     </li>
 
@@ -299,10 +300,10 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
         </p>
       </a>
       <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>portfolio.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Holdings</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>watchlist.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watchlist</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>performance.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Performance</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>export.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Export Portfolio</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/my-holdings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Holdings</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/watchlist.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watchlist</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/performance.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Performance</p></a></li>
+        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/export.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Export Portfolio</p></a></li>
       </ul>
     </li>
 
