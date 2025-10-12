@@ -242,145 +242,150 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
     <!-- (D) MAIN CONTENTS -->
    
       <?php if ($_ISADMIN) { ?>
-        <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <!-- Brand Logo -->
-    <a href="<?=URL_HOST?>" class="brand-link">
-      <!-- <img src="<?=URL_HOST?>dist/img/logo-horizontal.png" alt="PaperTrade Logo" class="brand-image img-circle elevation-3" style="opacity: .8"> -->
-      <span class="brand-text font-weight-light"><img src="<?=URL_HOST?>dist/img/logo-horizontal.png" height="40%" width="100%"></span>
-    </a>
+        <aside class="main-sidebar elevation-4 bg-gradient-dark sidebar-dark-primary" style="background: #4d6d8e linear-gradient(180deg, #00193d, #000000) repeat-x !important;">
+  <!-- Brand Logo -->
+  <a href="<?=URL_HOST?>" class="brand-link text-center border-bottom border-secondary py-3">
+    <img src="<?=URL_HOST?>dist/img/logo-horizontal.png" alt="PaperTrade Logo" class="img-fluid" style="max-height:40px;">
+  </a>
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <!-- Sidebar user panel (optional) -->
-      <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-        <div class="image">
-          <img src="<?=URL_HOST?>dist/img/<?=$active_user['avatar']?>" class="img-circle elevation-2" alt="User Image">
-        </div>
-        <div class="info">
-          <a href="<?=URL_HOST?>my-account/profile.php" class="d-block"><?=$active_user['user_name']?></a>
-        </div>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- User Panel -->
+    <div class="user-panel mt-3 pb-3 mb-3 d-flex align-items-center border-bottom border-secondary">
+      <div class="image">
+        <img src="<?=URL_HOST?>dist/img/<?=$active_user['avatar']?>" class="img-circle elevation-3 border border-success" alt="User Image">
       </div>
-      <!-- Sidebar Menu -->
-      <nav class="mt-2" id="sidebar">
-  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-
-    <!-- Dashboard -->
-    <li class="nav-item">
-      <a href="<?=URL_HOST?>" class="nav-link">
-        <i class="nav-icon fas fa-tachometer-alt"></i>
-        <p>Dashboard</p>
-      </a>
-    </li>
-
-    <!-- Trading -->
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link">
-        <i class="nav-icon fas fa-chart-line"></i>
-        <p>
-          Trading
-          <i class="right fas fa-angle-left"></i>
-        </p>
-      </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/buy.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Buy Stocks/Crypto</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/sell.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Sell Stocks/Crypto</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/reminder.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Reminder</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/search.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Search Stocks</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>trading/transactions.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Transactions</p></a></li>
-      </ul>
-    </li>
-
-    <!-- Portfolio -->
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link">
-        <i class="nav-icon fas fa-briefcase"></i>
-        <p>
-          Portfolio
-          <i class="right fas fa-angle-left"></i>
-        </p>
-      </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/my-holdings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>My Holdings</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/watchlist.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Watchlist</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/performance.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Performance</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>portfolio/export.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Export Portfolio</p></a></li>
-      </ul>
-    </li>
-
-    <!-- Market Tools -->
-    <li class="nav-item has-treeview">
-      <a href="#" class="nav-link">
-        <i class="nav-icon fas fa-tools"></i>
-        <p>
-          Market Tools
-          <i class="right fas fa-angle-left"></i>
-        </p>
-      </a>
-      <ul class="nav nav-treeview">
-        <li class="nav-item"><a href="<?=URL_HOST?>screener.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Stock Screener</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>compare.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Compare Stocks</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>calendar.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Market Calendar</p></a></li>
-        <li class="nav-item"><a href="<?=URL_HOST?>news.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>News & Announcements</p></a></li>
-      </ul>
-
-      
-      
-      <!-- Learning / Gamification -->
-      <li class="nav-item has-treeview">
-        <a href="#" class="nav-link">
-          <i class="nav-icon fas fa-graduation-cap"></i>
-          <p>
-            Learning Zone
-            <i class="right fas fa-angle-left"></i>
-          </p>
-        </a>
-        <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="<?=URL_HOST?>tutorials.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Tutorials</p></a></li>
-          <li class="nav-item"><a href="<?=URL_HOST?>challenges.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Trading Challenges</p></a></li>
-          <li class="nav-item"><a href="<?=URL_HOST?>leaderboard.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Leaderboard</p></a></li>
-        </ul>
-      </li>
-      
-      <!-- Account -->
-      <li class="nav-item has-treeview">
-        <a href="#" class="nav-link">
-          <i class="nav-icon fas fa-user"></i>
-          <p>
-            My Account
-            <i class="right fas fa-angle-left"></i>
-          </p>
-        </a>
-        <ul class="nav nav-treeview">
-          <li class="nav-item"><a href="<?=URL_HOST?>my-account/profile.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Profile</p></a></li>
-          <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Settings</p></a></li>
-          <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="far fa-circle nav-icon"></i><p>Notifications</p></a></li>
-          <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="far fa-circle nav-icon"></i><p>Logout</p></a></li>
-        </ul>
-      </li>
-      
-      <li class="nav-item">
-      <a href="<?=URL_HOST?>test-page.php" class="nav-link">
-        <i class="nav-icon fas fa-tachometer-alt"></i>
-        <p>Test Page</p>
-      </a>
-    </li>
-  </ul>
-</nav>
-
-      <script type="text/javascript">
-    const currentlocation = location.href;
-    const menuItem = document.querySelectorAll('a');
-    const menuLength = menuItem.length
-    for (let i = 0; i<menuLength; i++){
-      if (menuItem[i].href === currentlocation) {
-        menuItem[i].className = "nav-link active" 
-         }
-    }
-  </script>
-      <!-- /.sidebar-menu -->
+      <div class="info">
+        <a href="<?=URL_HOST?>my-account/profile.php" class="d-block text-light font-weight-bold hover-glow"><?=$active_user['user_name']?></a>
+        <span class="text-xs text-muted">Active Trader</span>
+      </div>
     </div>
-    <!-- /.sidebar -->
-  </aside>
+
+    <!-- Sidebar Menu -->
+    <nav class="mt-2" id="sidebar">
+      <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+        <!-- Dashboard -->
+        <li class="nav-item">
+          <a href="<?=URL_HOST?>" class="nav-link">
+            <i class="nav-icon fas fa-home text-success"></i>
+            <p>Dashboard</p>
+          </a>
+        </li>
+
+        <!-- Trading -->
+        <li class="nav-item has-treeview">
+          <a href="#" class="nav-link">
+            <i class="nav-icon fas fa-chart-line text-warning"></i>
+            <p>Trading <i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item"><a href="<?=URL_HOST?>trading/buy.php" class="nav-link"><i class="fas fa-coins nav-icon text-warning"></i><p>Buy Stocks/Crypto</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>trading/sell.php" class="nav-link"><i class="fas fa-hand-holding-usd nav-icon text-warning"></i><p>Sell Stocks/Crypto</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>trading/reminder.php" class="nav-link"><i class="fas fa-bell nav-icon text-warning"></i><p>Reminder</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>trading/search.php" class="nav-link"><i class="fas fa-search-dollar nav-icon text-warning"></i><p>Search Stocks</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>trading/transactions.php" class="nav-link"><i class="fas fa-history nav-icon text-warning"></i><p>My Transactions</p></a></li>
+          </ul>
+        </li>
+
+        <!-- Portfolio -->
+        <li class="nav-item has-treeview">
+          <a href="#" class="nav-link">
+            <i class="nav-icon fas fa-briefcase text-info"></i>
+            <p>Portfolio <i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/my-holdings.php" class="nav-link"><i class="fas fa-wallet nav-icon text-info"></i><p>My Holdings</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/watchlist.php" class="nav-link"><i class="fas fa-eye nav-icon text-info"></i><p>Watchlist</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/performance.php" class="nav-link"><i class="fas fa-chart-pie nav-icon text-info"></i><p>Performance</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/export.php" class="nav-link"><i class="fas fa-file-export nav-icon text-info"></i><p>Export Portfolio</p></a></li>
+          </ul>
+        </li>
+
+        <!-- Market Tools -->
+        <li class="nav-item has-treeview">
+          <a href="#" class="nav-link">
+            <i class="nav-icon fas fa-tools text-primary"></i>
+            <p>Market Tools <i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/screener.php" class="nav-link"><i class="fas fa-filter nav-icon text-primary"></i><p>Stock Screener</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/compare.php" class="nav-link"><i class="fas fa-balance-scale nav-icon text-primary"></i><p>Compare Stocks</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/calendar.php" class="nav-link"><i class="fas fa-calendar-alt nav-icon text-primary"></i><p>Market Calendar</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/news.php" class="nav-link"><i class="fas fa-newspaper nav-icon text-primary"></i><p>News & Announcements</p></a></li>
+          </ul>
+        </li>
+
+        <!-- Learning Zone -->
+        <li class="nav-item has-treeview">
+          <a href="#" class="nav-link">
+            <i class="nav-icon fas fa-graduation-cap text-light"></i>
+            <p>Learning Zone <i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item"><a href="<?=URL_HOST?>tutorials.php" class="nav-link"><i class="fas fa-book-open nav-icon text-light"></i><p>Tutorials</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>challenges.php" class="nav-link"><i class="fas fa-trophy nav-icon text-light"></i><p>Trading Challenges</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>leaderboard.php" class="nav-link"><i class="fas fa-medal nav-icon text-light"></i><p>Leaderboard</p></a></li>
+          </ul>
+        </li>
+
+        <!-- My Account -->
+        <li class="nav-item has-treeview">
+          <a href="#" class="nav-link">
+            <i class="nav-icon fas fa-user text-danger"></i>
+            <p>My Account <i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item"><a href="<?=URL_HOST?>my-account/profile.php" class="nav-link"><i class="fas fa-id-card nav-icon text-danger"></i><p>Profile</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="fas fa-cogs nav-icon text-danger"></i><p>Settings</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="fas fa-bell nav-icon text-danger"></i><p>Notifications</p></a></li>
+            <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="fas fa-sign-out-alt nav-icon text-danger"></i><p>Logout</p></a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</aside>
+
+
+<!-- Active link highlight -->
+<script type="text/javascript">
+  const currentlocation = location.href;
+  const menuItem = document.querySelectorAll('.nav-link');
+  menuItem.forEach(item => {
+    if (item.href === currentlocation) {
+      item.classList.add('active');
+      item.closest('.has-treeview')?.classList.add('menu-open');
+      item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
+      item.querySelector('p')?.classList.add('text-success');
+      item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
+    }
+  });
+</script>
+
+<style>
+  /* Sidebar Enhancements */
+  .main-sidebar {
+    background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
+  }
+  .nav-link.active {
+    background-color: rgba(255,255,255,0.1) !important;
+    border-left: 3px solid #00ff88 !important;
+    font-weight: 600;
+  }
+  .nav-link:hover {
+    background-color: rgba(255,255,255,0.05);
+    color: #00ffaa !important;
+    transition: 0.3s;
+  }
+  .hover-glow:hover {
+    text-shadow: 0 0 8px #00ffcc;
+  }
+  .nav-icon {
+    width: 22px;
+  }
+</style>
+
 
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
