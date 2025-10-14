@@ -339,6 +339,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
             <li class="nav-item"><a href="<?=URL_HOST?>my-account/profile.php" class="nav-link"><i class="fas fa-id-card nav-icon text-danger"></i><p>Profile</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>settings.php" class="nav-link"><i class="fas fa-cogs nav-icon text-danger"></i><p>Settings</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>notifications.php" class="nav-link"><i class="fas fa-bell nav-icon text-danger"></i><p>Notifications</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>my-account/activities.php" class="nav-link"><i class="fas fa-tasks nav-icon text-danger"></i><p>Activities</p></a></li>
             <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i class="fas fa-sign-out-alt nav-icon text-danger"></i><p>Logout</p></a></li>
           </ul>
         </li>
