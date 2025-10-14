@@ -159,7 +159,6 @@ $totalBuyValue = 0.0;
 $totalSellValue = 0.0;
 $lastTradeAt = null;
 $recentTrades = [];
-$monthlyLedger = [];
 
 if ($conn && $userId > 0) {
   $stmtTrades = $conn->prepare("
@@ -182,11 +181,9 @@ if ($conn && $userId > 0) {
         if ($side === 'BUY') {
           $spend = $lineValue + $feeValue;
           $totalBuyValue += $spend;
-          $netImpact = -$spend;
         } else {
           $proceeds = max($lineValue - $feeValue, 0);
           $totalSellValue += $proceeds;
-          $netImpact = $proceeds;
         }
 
         if (empty($lastTradeAt)) {
@@ -203,41 +200,10 @@ if ($conn && $userId > 0) {
           ];
         }
 
-        if (!empty($executedAt)) {
-          $monthKey = date("Y-m", strtotime($executedAt));
-          if (!isset($monthlyLedger[$monthKey])) {
-            $monthlyLedger[$monthKey] = [
-              "contributions" => 0.0,
-              "withdrawals" => 0.0,
-              "net" => 0.0
-            ];
-          }
-          if ($side === 'BUY') {
-            $monthlyLedger[$monthKey]["contributions"] += $lineValue + $feeValue;
-            $monthlyLedger[$monthKey]["net"] -= $lineValue + $feeValue;
-          } else {
-            $monthlyLedger[$monthKey]["withdrawals"] += max($lineValue - $feeValue, 0);
-            $monthlyLedger[$monthKey]["net"] += max($lineValue - $feeValue, 0);
-          }
-        }
       }
     }
     $stmtTrades->close();
   }
-}
-
-ksort($monthlyLedger);
-$timelineSeries = [];
-$runningNet = 0.0;
-foreach ($monthlyLedger as $month => $totals) {
-  $runningNet += $totals["net"];
-  $timelineSeries[] = [
-    "month" => date("M Y", strtotime($month . "-01")),
-    "net" => round($totals["net"], 2),
-    "contributions" => round($totals["contributions"], 2),
-    "withdrawals" => round($totals["withdrawals"], 2),
-    "cumulative" => round($runningNet, 2)
-  ];
 }
 
 $allocationSeries = [];
@@ -394,11 +360,13 @@ foreach ($watchlist as $item) {
         <div class="card card-outline card-dark h-100">
           <div class="card-header border-0 d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">Performance Timeline</h3>
-            <small class="text-muted">Monthly contributions, withdrawals, and net flow</small>
+            <small class="text-muted">Live portfolio value · updates every 5 seconds</small>
           </div>
           <div class="card-body">
-            <div class="position-relative" style="height: 340px;">
-              <canvas id="performanceChart"></canvas>
+            <div id="performanceChart" style="height: 340px;"></div>
+            <div class="d-flex justify-content-between mt-3 small text-muted">
+              <span>Current value: <span class="font-weight-semibold text-dark" id="performanceCurrentValue">—</span></span>
+              <span>Last update: <span class="font-weight-semibold text-dark" id="performanceLastUpdate">—</span></span>
             </div>
           </div>
         </div>
@@ -567,81 +535,176 @@ foreach ($watchlist as $item) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const timelineSeries = <?=json_encode($timelineSeries); ?>;
   const allocationSeries = <?=json_encode($allocationSeries); ?>;
 
-  const performanceCtx = document.getElementById("performanceChart");
+  const performanceChartEl = document.getElementById("performanceChart");
   const allocationCtx = document.getElementById("allocationChart");
+  const liveValueEl = document.getElementById("performanceCurrentValue");
+  const lastUpdateEl = document.getElementById("performanceLastUpdate");
 
-  if (performanceCtx && timelineSeries.length) {
-    const labels = timelineSeries.map(item => item.month);
-    const contributions = timelineSeries.map(item => -Number(item.contributions || 0));
-    const withdrawals = timelineSeries.map(item => Number(item.withdrawals || 0));
-    const cumulative = timelineSeries.map(item => Number(item.cumulative || 0));
+  const portfolioEndpoint = new URL("ajax-portfolio-worth.php", window.location.href).toString();
+  const POLL_INTERVAL = 5000;
+  const MAX_POINTS = 120;
 
-    new Chart(performanceCtx, {
-      data: {
-        labels,
-        datasets: [
-          {
-            type: 'bar',
-            label: 'Contributions',
-            data: contributions,
-            backgroundColor: 'rgba(220,53,69,0.65)',
-            borderWidth: 0,
-            stack: 'cashflow'
-          },
-          {
-            type: 'bar',
-            label: 'Withdrawals',
-            data: withdrawals,
-            backgroundColor: 'rgba(40,167,69,0.65)',
-            borderWidth: 0,
-            stack: 'cashflow'
-          },
-          {
-            type: 'line',
-            label: 'Net Flow',
-            data: cumulative,
-            borderColor: '#17a2b8',
-            backgroundColor: 'rgba(23,162,184,0.15)',
-            borderWidth: 3,
-            tension: 0.35,
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true, ticks: { color: '#6c757d' } },
-          y: {
-            stacked: true,
-            ticks: {
-              callback: (value) => '$' + Number(value).toLocaleString()
-            }
-          },
-          y1: {
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            ticks: {
-              callback: (value) => '$' + Number(value).toLocaleString()
-            }
-          }
-        },
-        plugins: {
-          legend: { display: true },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return context.dataset.label + ': $' + Number(context.parsed.y).toLocaleString(undefined, { maximumFractionDigits: 2 });
-              }
-            }
-          }
-        }
-      }
+  let pollTimer = null;
+  let portfolioChart = null;
+
+  const chartState = {
+    points: []
+  };
+
+  const formatCurrency = (value) => {
+    if (!Number.isFinite(value)) {
+      return "$0.00";
+    }
+    return "$" + value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     });
+  };
+
+  const ensureChart = () => {
+    if (portfolioChart || !performanceChartEl) {
+      return;
+    }
+
+    const options = {
+      chart: {
+        type: "area",
+        height: 320,
+        animations: { enabled: false },
+        toolbar: { show: false },
+        sparkline: { enabled: false }
+      },
+      dataLabels: { enabled: false },
+      stroke: { curve: "smooth", width: 3 },
+      series: [{ name: "Portfolio Value", data: chartState.points }],
+      colors: ["#17a2b8"],
+      fill: {
+        type: "gradient",
+        gradient: {
+          shadeIntensity: 0.6,
+          opacityFrom: 0.35,
+          opacityTo: 0.05,
+          stops: [0, 90, 100]
+        }
+      },
+      grid: {
+        borderColor: "rgba(108,117,125,0.12)",
+        strokeDashArray: 3
+      },
+      xaxis: {
+        type: "datetime",
+        labels: { style: { colors: "#6c757d" } },
+        axisBorder: { color: "rgba(108,117,125,0.2)" },
+        axisTicks: { color: "rgba(108,117,125,0.2)" }
+      },
+      yaxis: {
+        labels: {
+          style: { colors: "#6c757d" },
+          formatter: (value) => "$" + Number(value).toLocaleString()
+        }
+      },
+      tooltip: {
+        x: { format: "MMM dd HH:mm:ss" },
+        y: {
+          formatter: (value) => formatCurrency(Number(value))
+        }
+      },
+      noData: {
+        text: "Awaiting live data…",
+        align: "center"
+      }
+    };
+
+    performanceChartEl.innerHTML = "";
+    portfolioChart = new ApexCharts(performanceChartEl, options);
+    portfolioChart.render();
+  };
+
+  const appendPoint = (timestamp, value) => {
+    const ts = timestamp ? new Date(timestamp) : new Date();
+    const point = { x: ts.getTime(), y: value };
+    chartState.points.push(point);
+
+    while (chartState.points.length > MAX_POINTS) {
+      chartState.points.shift();
+    }
+
+    ensureChart();
+    if (portfolioChart) {
+      portfolioChart.updateSeries([{ name: "Portfolio Value", data: chartState.points.slice() }], false);
+    }
+  };
+
+  const clearPollTimer = () => {
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+  };
+
+  const scheduleNextPoll = () => {
+    clearPollTimer();
+    pollTimer = setTimeout(refreshPortfolioWorth, POLL_INTERVAL);
+  };
+
+  const fetchPortfolioWorth = async () => {
+    const response = await fetch(portfolioEndpoint, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      const error = new Error("Request failed with status " + response.status);
+      error.status = response.status;
+      throw error;
+    }
+    const payload = await response.json();
+    if (!payload || payload.status !== "success") {
+      const error = new Error(payload && payload.message ? payload.message : "Unexpected response");
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  };
+
+  const refreshPortfolioWorth = async () => {
+    try {
+      const data = await fetchPortfolioWorth();
+      const portfolioValue = Number(data.portfolioValue ?? data.totalValue ?? data.value ?? 0);
+      const sanitizedValue = Number.isFinite(portfolioValue) ? portfolioValue : 0;
+      const timestamp = data.timestamp || new Date().toISOString();
+
+      appendPoint(timestamp, sanitizedValue);
+
+      if (liveValueEl) {
+        liveValueEl.textContent = formatCurrency(sanitizedValue);
+      }
+      if (lastUpdateEl) {
+        const dt = new Date(timestamp);
+        lastUpdateEl.textContent = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      }
+    } catch (error) {
+      console.error("Unable to refresh portfolio worth:", error);
+      if (lastUpdateEl) {
+        lastUpdateEl.textContent = error.status === 401 ? "Session expired" : "Error";
+      }
+      if (window.toastr) {
+        window.toastr.error("Live portfolio update failed" + (error.message ? `: ${error.message}` : ""));
+      }
+      if (error.status === 401) {
+        clearPollTimer();
+        return;
+      }
+    } finally {
+      scheduleNextPoll();
+    }
+  };
+
+  if (performanceChartEl) {
+    ensureChart();
+    refreshPortfolioWorth();
   }
 
   if (allocationCtx && allocationSeries.length) {
@@ -675,6 +738,8 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  window.addEventListener("beforeunload", clearPollTimer);
 });
 </script>
 
