@@ -146,8 +146,15 @@ body.login-page-enhanced .wrapper {
 }
 
 .login-logo {
-  width: clamp(90px, 12vw, 140px);
-  filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.45));
+  display: block;
+  width: clamp(140px, 18vw, 240px);
+  max-width: 260px;
+  filter: drop-shadow(0 18px 36px rgba(15, 23, 42, 0.55));
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+.login-logo:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 26px 52px rgba(15, 23, 42, 0.65));
 }
 .login-brand h1 {
   font-size: clamp(2.25rem, 1.5vw + 1.85rem, 3.1rem);
