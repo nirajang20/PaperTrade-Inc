@@ -299,7 +299,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/watchlist.php" class="nav-link"><i class="fas fa-eye nav-icon text-info"></i><p>Watchlist</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/performance.php" class="nav-link"><i class="fas fa-chart-pie nav-icon text-info"></i><p>Performance</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/export.php" class="nav-link"><i class="fas fa-file-export nav-icon text-info"></i><p>Export Portfolio</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/screener.php" class="nav-link"><i class="fas fa-filter nav-icon text-primary"></i><p>Stock Screener</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/screener.php" class="nav-link"><i class="fas fa-filter nav-icon text-info"></i><p>Stock Screener</p></a></li>
           </ul>
         </li>
 
