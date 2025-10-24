@@ -299,33 +299,7 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/watchlist.php" class="nav-link"><i class="fas fa-eye nav-icon text-info"></i><p>Watchlist</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/performance.php" class="nav-link"><i class="fas fa-chart-pie nav-icon text-info"></i><p>Performance</p></a></li>
             <li class="nav-item"><a href="<?=URL_HOST?>portfolio/export.php" class="nav-link"><i class="fas fa-file-export nav-icon text-info"></i><p>Export Portfolio</p></a></li>
-          </ul>
-        </li>
-
-        <!-- Market Tools -->
-        <li class="nav-item has-treeview">
-          <a href="#" class="nav-link">
-            <i class="nav-icon fas fa-tools text-primary"></i>
-            <p>Market Tools <i class="right fas fa-angle-left"></i></p>
-          </a>
-          <ul class="nav nav-treeview">
-            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/screener.php" class="nav-link"><i class="fas fa-filter nav-icon text-primary"></i><p>Stock Screener</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/compare.php" class="nav-link"><i class="fas fa-balance-scale nav-icon text-primary"></i><p>Compare Stocks</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/calendar.php" class="nav-link"><i class="fas fa-calendar-alt nav-icon text-primary"></i><p>Market Calendar</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>market-tools/news.php" class="nav-link"><i class="fas fa-newspaper nav-icon text-primary"></i><p>News & Announcements</p></a></li>
-          </ul>
-        </li>
-
-        <!-- Learning Zone -->
-        <li class="nav-item has-treeview">
-          <a href="#" class="nav-link">
-            <i class="nav-icon fas fa-graduation-cap text-light"></i>
-            <p>Learning Zone <i class="right fas fa-angle-left"></i></p>
-          </a>
-          <ul class="nav nav-treeview">
-            <li class="nav-item"><a href="<?=URL_HOST?>tutorials.php" class="nav-link"><i class="fas fa-book-open nav-icon text-light"></i><p>Tutorials</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>challenges.php" class="nav-link"><i class="fas fa-trophy nav-icon text-light"></i><p>Trading Challenges</p></a></li>
-            <li class="nav-item"><a href="<?=URL_HOST?>leaderboard.php" class="nav-link"><i class="fas fa-medal nav-icon text-light"></i><p>Leaderboard</p></a></li>
+            <li class="nav-item"><a href="<?=URL_HOST?>portfolio/screener.php" class="nav-link"><i class="fas fa-filter nav-icon text-primary"></i><p>Stock Screener</p></a></li>
           </ul>
         </li>
 
