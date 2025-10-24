@@ -500,5 +500,5 @@ require PATH_LIB . "PAGE-top.php"; ?>
   })();
 })();
 </script>
-<!-- ui git push bnfnbcvhmn-->
+
 <?php require PATH_LIB . "PAGE-bottom.php"; ?>
