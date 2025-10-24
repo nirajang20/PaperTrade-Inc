@@ -187,16 +187,18 @@ $curatedCollections = [
           </div>
           <div class="card-footer bg-white">
             <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between">
-              <div class="btn-group btn-group-sm mb-3 mb-md-0" role="group" aria-label="Range selector" id="chart-range-buttons">
-                <button type="button" class="btn btn-outline-secondary active" data-range="1D">1D</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="5D">5D</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="1M">1M</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="3M">3M</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="6M">6M</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="1Y">1Y</button>
-                <button type="button" class="btn btn-outline-secondary" data-range="MAX">MAX</button>
+              <div class="flex-grow-1 d-flex justify-content-center mb-3 mb-md-0">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Range selector" id="chart-range-buttons">
+                  <button type="button" class="btn btn-outline-secondary active" data-range="1D">1D</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="5D">5D</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="1M">1M</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="3M">3M</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="6M">6M</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="1Y">1Y</button>
+                  <button type="button" class="btn btn-outline-secondary" data-range="MAX">MAX</button>
+                </div>
               </div>
-              <div class="text-muted small" id="last-updated-label"><i class="far fa-clock mr-1"></i>Updated —</div>
+              <div class="text-muted small text-center text-md-right ml-md-3" id="last-updated-label"><i class="far fa-clock mr-1"></i>Updated —</div>
             </div>
           </div>
         </div>
@@ -314,6 +316,33 @@ $curatedCollections = [
     font-size: 0.95rem;
     color: #343a40;
     font-weight: 500;
+  }
+  #chart-range-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #chart-range-buttons .btn {
+    margin: 0.15rem;
+    min-width: 3.25rem;
+  }
+  .price-rolling {
+    display: inline-block;
+    animation: priceRoll 3s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes priceRoll {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-12%);
+    }
+    50% {
+      transform: translateY(6%);
+    }
+    75% {
+      transform: translateY(-4%);
+    }
   }
   @media (max-width: 991.98px) {
     .market-chart {
@@ -509,6 +538,7 @@ document.addEventListener('DOMContentLoaded', function () {
       overviewExchangeEl.textContent = '—';
       overviewCompanyEl.textContent = 'Symbol not found.';
       overviewPriceEl.textContent = '—';
+      overviewPriceEl.classList.remove('price-rolling');
       overviewChangeEl.textContent = '—';
       return;
     }
@@ -523,12 +553,15 @@ document.addEventListener('DOMContentLoaded', function () {
       changePercent = Number(changePercent).toFixed(2) + '%';
     }
 
-    state.livePrice = Number(stock.last_price) || 0;
+    const numericPrice = Number(stock.last_price);
+    const hasPrice = isFinite(numericPrice);
+    state.livePrice = hasPrice ? numericPrice : 0;
 
     overviewSymbolEl.textContent = stock.ticker || '—';
     overviewExchangeEl.textContent = stock.exchange || '—';
     overviewCompanyEl.textContent = stock.company_name || '—';
-    overviewPriceEl.textContent = state.livePrice ? toCurrency(state.livePrice) : '—';
+    overviewPriceEl.textContent = hasPrice ? toCurrency(numericPrice) : '—';
+    overviewPriceEl.classList.toggle('price-rolling', hasPrice);
     overviewChangeEl.textContent = (isFinite(changeAmount) ? (changeAmount >= 0 ? '+' : '') + changeAmount.toFixed(2) : '—') + (changePercent ? ` (${changePercent})` : '');
     overviewChangeEl.classList.remove('text-success', 'text-danger');
     if (isFinite(changeAmount)) {

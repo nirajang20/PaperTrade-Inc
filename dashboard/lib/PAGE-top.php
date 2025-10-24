@@ -369,24 +369,23 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
   .main-sidebar {
     background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
   }
-  .nav-link.active {
+  .main-sidebar .nav-link.active {
     background-color: rgba(255,255,255,0.1) !important;
     border-left: 3px solid #00ff88 !important;
     font-weight: 600;
   }
-  .nav-link:hover {
+  .main-sidebar .nav-link:hover {
     background-color: rgba(255,255,255,0.05);
     color: #00ffaa !important;
     transition: 0.3s;
   }
-  .hover-glow:hover {
+  .main-sidebar .hover-glow:hover {
     text-shadow: 0 0 8px #00ffcc;
   }
-  .nav-icon {
+  .main-sidebar .nav-icon {
     width: 22px;
   }
 </style>
-
 
   <!-- Content Wrapper. Contains page content -->
   <div class="content-wrapper">
