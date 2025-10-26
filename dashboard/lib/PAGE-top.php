@@ -333,6 +333,10 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
       item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
       item.querySelector('p')?.classList.add('text-success');
       item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
+      let parentText = item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.textContent;
+      if (parentText) {
+        document.title += " | " + parentText;
+      }
     }
   });
 </script>

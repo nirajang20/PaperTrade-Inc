@@ -153,7 +153,6 @@ function animateChart(canvas, options = {}) {
   }, 1200);
 }
 
-animateChart(document.getElementById('hero-chart'));
 animateChart(document.getElementById('learn-chart'), { duration: 1600, color: '#7e30e1' });
 
 // Smooth scroll for anchors
