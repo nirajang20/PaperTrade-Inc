@@ -371,6 +371,8 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
                     </a></li>
                 </ul>
               </li>
+            <?php if ($active_user['role'] == 'Admin') { ?>
+              <!-- Admin Management Start -->
               <li class="nav-item has-treeview">
                 <a href="#" class="nav-link">
                   <i class="nav-icon fas fa-user-shield text-danger"></i>
@@ -414,6 +416,8 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
                   </li>
                 </ul>
               </li>
+              <!-- Admin Management Stop -->
+            <?php } ?>
             </ul>
           </nav>
         </div>
