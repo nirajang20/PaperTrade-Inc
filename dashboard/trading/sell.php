@@ -2,7 +2,44 @@
 require "../lib/Core.php";
 require "../lib/PAGE-top.php";
 
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+if (!function_exists('recordActivity')) {
+  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success')
+  {
+    if (!$conn || !$userId) {
+      return;
+    }
+    $allowedStatuses = ['Success', 'Pending', 'Failed', 'Warning'];
+    if (!in_array($status, $allowedStatuses, true)) {
+      $status = 'Success';
+    }
+    $device = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 100);
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+    $ipv4 = null;
+    $ipv6 = null;
+    if ($ipAddress) {
+      if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $ipv4 = $ipAddress;
+      } elseif (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $ipv6 = $ipAddress;
+      }
+    }
+    $stmt = $conn->prepare("INSERT INTO activities (action_title, page_name, notes, status, device, ipv4, ipv6, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    if ($stmt) {
+      $notesValue = $notes !== '' ? $notes : null;
+      $stmt->bind_param("sssssssi", $actionTitle, $pageName, $notesValue, $status, $device, $ipv4, $ipv6, $userId);
+      $stmt->execute();
+      $stmt->close();
+    }
+  }
+}
+
 $tradeAlert = null;
+$activityStatus = null;
+$activityNotes = null;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["sell_order_submit"])) {
   $orderModeRaw = $_POST["order_mode"] ?? "";
@@ -227,16 +264,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["sell_order_submit"]))
       }
       $transactionStarted = false;
 
+      $_SESSION['last_trade_symbol'] = $symbol;
+
       $tradeAlert = [
         "type" => "success",
         "title" => "Sell Order Submitted",
         "text" => "Your sell order for {$symbol} has been executed and holdings updated."
       ];
+      $activityStatus = 'Success';
+      $activityNotes = sprintf(
+        "SELL %s | Qty %s | Px %s | Fees %s",
+        $symbol,
+        number_format($quantityFormatted, 4, '.', ''),
+        number_format($priceFormatted, 4, '.', ''),
+        number_format($feesFormatted, 2, '.', '')
+      );
     } catch (Exception $exception) {
       if ($transactionStarted) {
         $conn->rollback();
       }
       $errors[] = $exception->getMessage();
+      $activityStatus = 'Failed';
+      $activityNotes = $exception->getMessage();
     }
   }
 
@@ -246,6 +295,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["sell_order_submit"]))
       "title" => "Sell Order Failed",
       "text" => implode("\n", array_unique($errors))
     ];
+    if ($activityStatus === null) {
+      $activityStatus = 'Failed';
+      $activityNotes = implode("; ", array_unique($errors));
+    }
+  }
+
+  if ($activityStatus && !empty($active_user['user_id'])) {
+    recordActivity(
+      $conn,
+      (int) $active_user['user_id'],
+      'Sell Order',
+      'trading/sell',
+      $activityNotes,
+      $activityStatus
+    );
   }
 }
 
@@ -291,6 +355,12 @@ if ($conn && isset($active_user['user_id'])) {
 
 if (!empty($userHoldingsMap)) {
   $defaultSellSymbol = array_key_first($userHoldingsMap);
+}
+if (!empty($_SESSION['last_trade_symbol'])) {
+  $candidateSymbol = strtoupper(preg_replace('/[^A-Z0-9\.\-\^]/', '', $_SESSION['last_trade_symbol']));
+  if ($candidateSymbol && isset($userHoldingsMap[$candidateSymbol])) {
+    $defaultSellSymbol = $candidateSymbol;
+  }
 }
 
 $recentOrders = [];
@@ -524,6 +594,10 @@ if (!empty($watchlistItems)) {
                 <button type="button" class="btn btn-outline-primary" data-range="1Yr">1Yr</button>
                 <button type="button" class="btn btn-outline-primary" data-range="3Yr">3Yr</button>
                 <button type="button" class="btn btn-outline-primary" data-range="5Yr">5Yr</button>
+              </div>
+              <div class="btn-group btn-group-sm ml-2" role="group" aria-label="Chart type selector" id="chart-type-toggle">
+                <button type="button" class="btn btn-outline-danger active" data-chart-type="candlestick">Candles</button>
+                <button type="button" class="btn btn-outline-danger" data-chart-type="line">Line</button>
               </div>
             </div>
   </div>
@@ -781,13 +855,57 @@ document.addEventListener('DOMContentLoaded', function () {
   const holdingsMapRaw = <?=json_encode($userHoldingsMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   const holdingsMap = holdingsMapRaw && typeof holdingsMapRaw === 'object' ? holdingsMapRaw : {};
   const baseSymbols = ['NVDA','MSFT','AAPL','GOOGL','AMZN','META','TSLA','JPM','^GSPC','BTC-USD','ETH-USD'];
-  const symbols = Array.from(new Set(baseSymbols.concat(Object.keys(holdingsMap))));
-  const DEFAULT_SYMBOL = <?=json_encode($defaultSellSymbol); ?>;
+  const serverDefaultSymbol = <?=json_encode($defaultSellSymbol); ?>;
+  const STORAGE_KEYS = {
+    symbol: 'trade:lastSymbol',
+    chartType: 'trade:chartType'
+  };
+
+  function getStoredSymbol() {
+    try {
+      const value = localStorage.getItem(STORAGE_KEYS.symbol);
+      return value ? value.toUpperCase() : null;
+    } catch (error) {
+      console.warn('Unable to read stored symbol', error);
+      return null;
+    }
+  }
+
+  function persistSelectedSymbol(symbol) {
+    if (!symbol) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.symbol, symbol.toUpperCase());
+    } catch (error) {
+      console.warn('Unable to persist symbol', error);
+    }
+  }
+
+  function getStoredChartType() {
+    try {
+      const value = localStorage.getItem(STORAGE_KEYS.chartType);
+      return value === 'line' ? 'line' : 'candlestick';
+    } catch (error) {
+      return 'candlestick';
+    }
+  }
+
+  function persistChartType(type) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.chartType, type);
+    } catch (error) {
+      console.warn('Unable to persist chart type', error);
+    }
+  }
+
+  const storedSymbol = getStoredSymbol();
+  const DEFAULT_SYMBOL = storedSymbol || serverDefaultSymbol || 'NVDA';
+  const symbols = Array.from(new Set(baseSymbols.concat(Object.keys(holdingsMap), DEFAULT_SYMBOL ? [DEFAULT_SYMBOL] : [])));
 
   const availableList = document.getElementById("available-stocks");
   const refreshBtn = document.getElementById("refresh-stocks");
   const refreshIcon = refreshBtn ? refreshBtn.querySelector('i') : null;
   const rangeButtonsWrapper = document.getElementById("chart-range-buttons");
+  const chartTypeToggle = document.getElementById("chart-type-toggle");
   const chartTitle = document.getElementById("selected-symbol-chart");
   const chartEl = document.getElementById("chart");
   const holdingInfoWrapper = document.getElementById("holding-info-wrapper");
@@ -796,6 +914,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const cashBalanceDisplay = document.getElementById("cash-balance-display");
   const cashBalance = holdingInfoWrapper ? Number(holdingInfoWrapper.getAttribute('data-cash-balance') || 0) : 0;
 
+  const AUTO_REFRESH_MS = 5000;
+  const CHART_AUTO_REFRESH_MS = 15000;
   const TRADE_FEE = 1;
   const CACHE_DURATION_MS = 60000;
   const CHART_CACHE_DURATION_MS = 120000;
@@ -809,14 +929,19 @@ document.addEventListener('DOMContentLoaded', function () {
     currentRange: '1D',
     livePrice: 0,
     currentHoldingQty: 0,
-    currentAvgCost: 0
+    currentAvgCost: 0,
+    chartType: getStoredChartType(),
+    lastChartPayload: null
   };
 
   let chartInstance = null;
+  let activeChartType = state.chartType;
   let stockAbortController = null;
   let chartAbortController = null;
   let loadingSwalCount = 0;
   let loadingSwalTimerInterval = null;
+  let autoRefreshTimerId = null;
+  let lastChartAutoUpdate = 0;
 
   function openLoadingSwal(config) {
     if (!window.Swal) return false;
@@ -932,15 +1057,31 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 
   const rangeButtons = rangeButtonsWrapper ? Array.prototype.slice.call(rangeButtonsWrapper.querySelectorAll('button[data-range]')) : [];
+  const chartTypeButtons = chartTypeToggle ? Array.prototype.slice.call(chartTypeToggle.querySelectorAll('button[data-chart-type]')) : [];
+
+  function toNumber(value) {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : NaN;
+    }
+    if (typeof value === 'string') {
+      const sanitized = value.replace(/[^0-9.\-]/g, '');
+      return sanitized ? Number(sanitized) : NaN;
+    }
+    if (value === null || typeof value === 'undefined') {
+      return NaN;
+    }
+    const num = Number(value);
+    return Number.isFinite(num) ? num : NaN;
+  }
 
   function formatCurrency(value) {
-    const num = Number(value);
+    const num = toNumber(value);
     if (!isFinite(num)) return '—';
     return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
   }
 
   function formatDecimal(value, digits) {
-    const num = Number(value);
+    const num = toNumber(value);
     if (!isFinite(num)) return '—';
     return num.toFixed(typeof digits === 'number' ? digits : 2);
   }
@@ -955,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function fmtNum(value) {
-    const num = Number(value);
+    const num = toNumber(value);
     if (!isFinite(num)) return '—';
     const abs = Math.abs(num);
     const sign = num < 0 ? '-' : '';
@@ -966,7 +1107,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function clampNumber(value) {
-    return isFinite(value) ? value : 0;
+    const num = toNumber(value);
+    return isFinite(num) ? num : 0;
   }
 
   function debounce(func, delay) {
@@ -994,16 +1136,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  function setActiveSymbol(symbol) {
-    if (!availableList) return;
-    const items = availableList.querySelectorAll('a[data-symbol]');
-    for (let i = 0; i < items.length; i++) {
-      items[i].classList.remove('active');
+  function setActiveChartTypeButton(type) {
+    for (let i = 0; i < chartTypeButtons.length; i++) {
+      const btn = chartTypeButtons[i];
+      btn.classList.toggle('active', btn.getAttribute('data-chart-type') === type);
     }
-    if (!symbol) return;
-    const selector = 'a[data-symbol="' + escapeSelector(symbol) + '"]';
-    const target = availableList.querySelector(selector);
-    if (target) target.classList.add('active');
+  }
+
+  function setActiveSymbol(symbol) {
+    if (availableList) {
+      const items = availableList.querySelectorAll('a[data-symbol]');
+      for (let i = 0; i < items.length; i++) {
+        items[i].classList.remove('active');
+      }
+      if (symbol) {
+        const selector = 'a[data-symbol="' + escapeSelector(symbol) + '"]';
+        const target = availableList.querySelector(selector);
+        if (target) target.classList.add('active');
+      }
+    }
+    if (symbol) {
+      persistSelectedSymbol(symbol);
+    }
+  }
+
+  function updateChartTitle() {
+    if (!chartTitle) return;
+    const symbolLabel = state.currentSymbol || DEFAULT_SYMBOL || '—';
+    const rangeLabel = state.currentRange || '—';
+    const typeLabel = state.chartType === 'line' ? 'Line' : 'Candles';
+    chartTitle.textContent = symbolLabel + " Price Chart · " + rangeLabel + " · " + typeLabel;
   }
 
   function getHoldingForSymbol(symbol) {
@@ -1202,31 +1364,49 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  function renderChart(ohlcData) {
+  function renderChart(dataset) {
     if (!chartEl) return;
-    if (!Array.isArray(ohlcData) || ohlcData.length === 0) {
+    const payload = dataset || state.lastChartPayload;
+    const chartType = state.chartType === 'line' ? 'line' : 'candlestick';
+    const seriesData = payload ? (chartType === 'line' ? payload.line : payload.candles) : null;
+    if (!payload || !Array.isArray(seriesData) || seriesData.length === 0) {
       if (chartInstance) {
         chartInstance.destroy();
         chartInstance = null;
       }
       chartEl.innerHTML = "<div class='text-center text-muted py-5'>No chart data available.</div>";
+      updateChartTitle();
       return;
     }
 
-    const options = {
-      series: [{ data: ohlcData }],
-      chart: { type: 'candlestick', height: 350, animations: { enabled: false }, toolbar: { show: false } },
-      xaxis: { type: 'datetime' },
-      yaxis: { tooltip: { enabled: true } }
-    };
+    const options = chartType === 'line'
+      ? {
+          series: [{ name: state.currentSymbol || 'Price', data: payload.line }],
+          chart: { type: 'line', height: 350, animations: { enabled: false }, toolbar: { show: false } },
+          stroke: { width: 2, curve: 'smooth' },
+          xaxis: { type: 'datetime' },
+          yaxis: { tooltip: { enabled: true }, decimalsInFloat: 2 }
+        }
+      : {
+          series: [{ data: payload.candles }],
+          chart: { type: 'candlestick', height: 350, animations: { enabled: false }, toolbar: { show: false } },
+          xaxis: { type: 'datetime' },
+          yaxis: { tooltip: { enabled: true } }
+        };
 
-    if (!chartInstance) {
+    if (!chartInstance || activeChartType !== chartType) {
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
       chartEl.innerHTML = '';
       chartInstance = new ApexCharts(chartEl, options);
       chartInstance.render();
     } else {
       chartInstance.updateOptions(options, false, true);
     }
+    activeChartType = chartType;
+    updateChartTitle();
   }
 
   async function loadChart(symbol, range, options) {
@@ -1235,12 +1415,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const cacheKey = symbol + "|" + cfg.period + "|" + cfg.interval;
     const now = Date.now();
     const forceRefresh = options && options.forceRefresh;
+    const silent = options && options.silent;
 
     if (!forceRefresh && chartDataCache.has(cacheKey)) {
       const cached = chartDataCache.get(cacheKey);
       if (now - cached.timestamp < CHART_CACHE_DURATION_MS) {
+        state.lastChartPayload = cached.data;
         renderChart(cached.data);
-        if (chartTitle) chartTitle.textContent = symbol + " Price Chart · " + range;
+        lastChartAutoUpdate = now;
         return;
       }
     }
@@ -1249,26 +1431,58 @@ document.addEventListener('DOMContentLoaded', function () {
     chartAbortController = new AbortController();
 
     try {
-      showChartLoadingTimer();
+      if (!silent) {
+        showChartLoadingTimer();
+      }
       const url = apiBase + "/chart-history?symbol=" + encodeURIComponent(symbol) + "&period=" + cfg.period + "&interval=" + cfg.interval;
       const response = await fetch(url, { signal: chartAbortController.signal });
       if (!response.ok) throw new Error("Chart API responded with " + response.status);
       const json = await response.json();
       const raw = json && Array.isArray(json.data) ? json.data : [];
-      const data = raw.map(function (item) {
+      const candles = raw.map(function (item) {
         return { x: new Date(item.x).getTime(), y: item.y };
       });
-      chartDataCache.set(cacheKey, { data: data, timestamp: now });
-      renderChart(data);
-      if (chartTitle) chartTitle.textContent = symbol + " Price Chart · " + range;
+      const lineSeries = raw.map(function (item) {
+        const ohlc = Array.isArray(item.y) ? item.y : [];
+        const close = ohlc.length ? ohlc[ohlc.length - 1] : null;
+        return { x: new Date(item.x).getTime(), y: Number(close) };
+      }).filter(function (point) {
+        return isFinite(point.y);
+      });
+      const dataset = { candles: candles, line: lineSeries };
+      chartDataCache.set(cacheKey, { data: dataset, timestamp: now });
+      state.lastChartPayload = dataset;
+      renderChart(dataset);
+      lastChartAutoUpdate = now;
     } catch (error) {
       if (error.name === 'AbortError') return;
       console.error('Chart load failed:', error);
       chartEl.innerHTML = "<div class='text-center text-danger py-5'>Unable to load chart data.</div>";
     } finally {
       chartAbortController = null;
-      closeChartLoadingTimer();
+      if (!silent) {
+        closeChartLoadingTimer();
+      }
     }
+  }
+
+  function startAutoRefresh() {
+    if (autoRefreshTimerId) {
+      clearInterval(autoRefreshTimerId);
+    }
+    if (!(AUTO_REFRESH_MS > 0)) return;
+    autoRefreshTimerId = setInterval(function () {
+      if (!state.currentSymbol || stockAbortController) {
+        return;
+      }
+      const symbol = state.currentSymbol;
+      loadStock(symbol, { forceRefresh: true, silent: true, skipChart: true });
+      const shouldRefreshChart = Date.now() - lastChartAutoUpdate >= CHART_AUTO_REFRESH_MS;
+      if (shouldRefreshChart) {
+        lastChartAutoUpdate = Date.now();
+        loadChart(symbol, state.currentRange, { silent: true });
+      }
+    }, AUTO_REFRESH_MS);
   }
 
   function updateOrderEstimates() {
@@ -1296,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (priceInputs.dollarEstimated) priceInputs.dollarEstimated.value = estShares > 0 ? estShares.toFixed(2) : '';
   }
 
-  function updateUIWithStockData(data) {
+  function updateUIWithStockData(data, options) {
     const stock = data && data.selected_stock ? data.selected_stock : null;
     if (!stock) return;
 
@@ -1304,11 +1518,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const dayRange = metrics.day_range || {};
     const range52 = metrics["52w_range"] || {};
     const priceChange = stock.price_change || {};
-    const priceChangeAmount = Number(priceChange.amount);
+    const priceChangeAmount = toNumber(priceChange.amount);
     const priceChangePct = priceChange.percentage;
 
     state.currentSymbol = stock.ticker;
-    state.livePrice = Number(stock.last_price) || 0;
+    state.livePrice = clampNumber(stock.last_price);
 
     if (els.symbol) els.symbol.textContent = stock.ticker || '—';
     if (els.company) els.company.textContent = (stock.company_name || 'Unknown') + " · " + (stock.exchange || '—');
@@ -1361,27 +1575,35 @@ document.addEventListener('DOMContentLoaded', function () {
     updateHoldingIndicators();
     updateOrderEstimates();
     setActiveSymbol(stock.ticker);
-    return loadChart(stock.ticker, state.currentRange);
+    updateChartTitle();
+    if (!options || !options.skipChart) {
+      return loadChart(stock.ticker, state.currentRange, options);
+    }
+    return Promise.resolve();
   }
 
   async function fetchStock(symbol, options) {
-    const forceRefresh = options && options.forceRefresh;
+    const opts = options || {};
+    const forceRefresh = !!opts.forceRefresh;
+    const silent = !!opts.silent;
     const now = Date.now();
     let loaderActivated = false;
 
     if (!forceRefresh && stockDataCache.has(symbol)) {
       const cached = stockDataCache.get(symbol);
       if (now - cached.timestamp < CACHE_DURATION_MS) {
-        return updateUIWithStockData(cached.data);
+        return updateUIWithStockData(cached.data, opts);
       }
     }
 
     if (stockAbortController) stockAbortController.abort();
     stockAbortController = new AbortController();
-    loaderActivated = true;
-    openLoadingSwal({
-      title: "Loading " + (symbol ? symbol.toUpperCase() + " data…" : "stock data…")
-    });
+    if (!silent) {
+      loaderActivated = true;
+      openLoadingSwal({
+        title: "Loading " + (symbol ? symbol.toUpperCase() + " data…" : "stock data…")
+      });
+    }
 
     try {
       const response = await fetch(apiBase + "/buy-sell?symbol=" + encodeURIComponent(symbol), { signal: stockAbortController.signal });
@@ -1389,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const data = await response.json();
       if (!data || !data.selected_stock) throw new Error("Invalid stock response");
       stockDataCache.set(symbol, { data: data, timestamp: now });
-      return updateUIWithStockData(data);
+      return updateUIWithStockData(data, opts);
     } catch (error) {
       if (error.name === 'AbortError') return;
       console.error('Stock load failed:', error);
@@ -1527,11 +1749,37 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!range) return;
       state.currentRange = range;
       setActiveRangeButton(range);
+      updateChartTitle();
       if (state.currentSymbol) {
         loadChart(state.currentSymbol, range);
       }
     });
   }
+
+  if (chartTypeToggle) {
+    chartTypeToggle.addEventListener('click', function (event) {
+      const button = event.target.closest('button[data-chart-type]');
+      if (!button) return;
+      const type = button.getAttribute('data-chart-type');
+      if (!type || type === state.chartType) return;
+      state.chartType = type === 'line' ? 'line' : 'candlestick';
+      setActiveChartTypeButton(state.chartType);
+      persistChartType(state.chartType);
+      if (state.lastChartPayload) {
+        renderChart(state.lastChartPayload);
+      } else if (state.currentSymbol) {
+        loadChart(state.currentSymbol, state.currentRange);
+      } else {
+        updateChartTitle();
+      }
+    });
+  }
+
+  window.addEventListener('beforeunload', function () {
+    if (autoRefreshTimerId) {
+      clearInterval(autoRefreshTimerId);
+    }
+  });
 
   ['input', 'change'].forEach(function (evt) {
     if (priceInputs.sharesQty) priceInputs.sharesQty.addEventListener(evt, updateOrderEstimates);
@@ -1595,7 +1843,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  state.currentSymbol = DEFAULT_SYMBOL;
   setActiveRangeButton(state.currentRange);
+  setActiveChartTypeButton(state.chartType);
+  updateChartTitle();
   updateOrderEstimates();
 
   openLoadingSwal({ title: "Loading sell data…" });
@@ -1606,6 +1857,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial data load failures are surfaced via inline UI messaging.
   }).finally(function () {
     closeLoadingSwal();
+    startAutoRefresh();
   });
 });
 </script>

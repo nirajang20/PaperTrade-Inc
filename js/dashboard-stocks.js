@@ -81,6 +81,9 @@ if (track) {
             }
 
             render(data);
+
+            // Dispatch the custom event with the fetched data
+            document.dispatchEvent(new CustomEvent('stockDataLoaded', { detail: data }));
         } catch (err) {
             console.error("Failed to fetch quotes", err);
             render(symbols.map((symbol) => ({ symbol, error: 'API error' })));
