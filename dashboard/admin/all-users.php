@@ -1,6 +1,40 @@
 <?php
 require "../lib/Core.php";
 
+$_ISADMIN = isset($_SESSION['user']);
+require_once PATH_LIB . "fetch.php";
+
+$activeRole = strtolower(trim($active_user['role'] ?? ''));
+if ($activeRole !== 'admin') {
+  $titleJson = json_encode('No Permission');
+  $messageJson = json_encode('You do not have permission to access this page.');
+  $redirectUrlJson = json_encode(URL_HOST);
+  echo <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js"></script>
+</head>
+<body>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      Swal.fire({
+        icon: 'error',
+        title: {$titleJson},
+        text: {$messageJson}
+      }).then(function () {
+        window.location.href = {$redirectUrlJson};
+      });
+    });
+  </script>
+</body>
+</html>
+HTML;
+  exit;
+}
+
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 if (!isset($_SESSION['admin_flash']) || !is_array($_SESSION['admin_flash'])) {
@@ -703,11 +737,15 @@ require PATH_LIB . "PAGE-top.php";
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="editVerifiedBalance">Balance ($)</label>
-              <input type="number" class="form-control" id="editVerifiedBalance" name="user_balance" min="0" step="100">
+            <input type="number" class="form-control" id="editVerifiedBalance" name="user_balance" min="0" max="1000000">
             </div>
             <div class="form-group col-md-3">
               <label for="editVerifiedRole">Role</label>
-              <input type="text" class="form-control text-capitalize" id="editVerifiedRole" name="role" placeholder="user">
+            <select class="form-control" id="editVerifiedRole" name="role">
+                <option value="Admin">Admin</option>
+                <option value="Trader">Trader</option>
+            </select>
+
             </div>
             <div class="form-group col-md-3">
               <label for="editVerifiedStatus">Status</label>

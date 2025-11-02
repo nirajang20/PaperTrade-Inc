@@ -32,6 +32,10 @@ if (isset($_POST["req"])) {
         }
 
         if ($valid) {
+          $isActive = isset($user["status"]) ? (int) $user["status"] === 1 : false;
+          if (!$isActive) {
+            exit("Account not active. Please contact support.");
+          }
           // Store user session (excluding password)
           $_SESSION["user"] = [];
           foreach ($user as $k => $v) {
