@@ -375,42 +375,42 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
               <!-- Admin Management Start -->
               <li class="nav-item has-treeview">
                 <a href="#" class="nav-link">
-                  <i class="nav-icon fas fa-user-shield text-danger"></i>
+                  <i class="nav-icon fas fa-user-shield text-purple"></i>
                   <p>Admin Management <i class="right fas fa-angle-left"></i></p>
                 </a>
 
                 <ul class="nav nav-treeview">
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/all-users.php" class="nav-link">
-                      <i class="fas fa-users nav-icon text-danger"></i>
+                      <i class="fas fa-users nav-icon text-purple"></i>
                       <p>All Users</p>
                     </a>
                   </li>
 
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/notifications.php" class="nav-link">
-                      <i class="fas fa-bell nav-icon text-danger"></i>
+                      <i class="fas fa-bell nav-icon text-purple"></i>
                       <p>Notifications</p>
                     </a>
                   </li>
 
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/admin-logs.php" class="nav-link">
-                      <i class="fas fa-clipboard-list nav-icon text-danger"></i>
+                      <i class="fas fa-clipboard-list nav-icon text-purple"></i>
                       <p>Admin Logs</p>
                     </a>
                   </li>
 
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/general-settings.php" class="nav-link">
-                      <i class="fas fa-cog nav-icon text-danger"></i>
+                      <i class="fas fa-cog nav-icon text-purple"></i>
                       <p>General</p>
                     </a>
                   </li>
 
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/backup-restore.php" class="nav-link">
-                      <i class="fas fa-database nav-icon text-danger"></i>
+                      <i class="fas fa-database nav-icon text-purple"></i>
                       <p>Backup / Restore</p>
                     </a>
                   </li>

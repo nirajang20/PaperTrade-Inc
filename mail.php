@@ -29,7 +29,7 @@ try {
 
     // Recipients
     $mail->setFrom('nirajanghimire20@gmail.com', 'PaperTrade .Inc');
-    $mail->addAddress('hello@nirajang.com.np', 'NirajanG'); // Add a recipient
+    $mail->addAddress('ashish.rai@jacks.sdstate.edu', 'Ashish Rai'); // Add a recipient
     // $mail->addAddress('ellen@example.com');            // Name is optional
     // $mail->addReplyTo('info@example.com', 'Information');
     // $mail->addCC('cc@example.com');
