@@ -1,6 +1,63 @@
 <?php
 require "../lib/Core.php";
 
+if (!function_exists('recordActivity')) {
+  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success')
+  {
+    if (!$conn || !$userId) {
+      return;
+    }
+
+    $allowedStatuses = ['Success', 'Pending', 'Failed', 'Warning'];
+    if (!in_array($status, $allowedStatuses, true)) {
+      $status = 'Success';
+    }
+
+    $actionTitle = trim((string) $actionTitle);
+    $pageName = trim((string) $pageName);
+    $notesValue = $notes !== null ? trim((string) $notes) : null;
+    if ($notesValue === '') {
+      $notesValue = null;
+    }
+
+    if ($actionTitle === '') {
+      $actionTitle = 'Activity';
+    }
+    if ($pageName === '') {
+      $pageName = 'portfolio/watchlist';
+    }
+
+    $device = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 120);
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+    $ipv4 = null;
+    $ipv6 = null;
+    if ($ipAddress) {
+      if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $ipv4 = $ipAddress;
+      } elseif (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $ipv6 = $ipAddress;
+      }
+    }
+
+    $stmt = $conn->prepare("INSERT INTO activities (action_title, page_name, notes, status, device, ipv4, ipv6, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    if ($stmt) {
+      $stmt->bind_param(
+        "sssssssi",
+        $actionTitle,
+        $pageName,
+        $notesValue,
+        $status,
+        $device,
+        $ipv4,
+        $ipv6,
+        $userId
+      );
+      $stmt->execute();
+      $stmt->close();
+    }
+  }
+}
+
 if (!$conn) {
   require "../lib/PAGE-top.php";
   echo "<section class='content'><div class='container-fluid'><div class='alert alert-danger'>Unable to connect to the watchlist database.</div></div></section>";
@@ -24,6 +81,10 @@ $alert = [
   "message" => null
 ];
 
+$activityLogged = false;
+$activityStatus = null;
+$activityNotes = null;
+
 function sanitize_symbol($symbol) {
   $symbol = strtoupper(trim($symbol));
   return preg_replace("/[^A-Z0-9\.\-\^]/", "", $symbol);
@@ -42,6 +103,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         "title" => "Add Failed",
         "message" => "Please enter a valid ticker symbol before adding."
       ];
+      $activityStatus = 'Failed';
+      $activityNotes = 'Watchlist add failed: missing symbol input.';
     } else {
       $symbolId = null;
       $stmtSymbol = $conn->prepare("SELECT id FROM available_trade WHERE symbol = ?");
@@ -62,6 +125,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $symbolId = $stmtInsertSymbol->insert_id;
           }
           $stmtInsertSymbol->close();
+        } else {
+          $activityStatus = 'Failed';
+          $activityNotes = "Watchlist add failed: unable to prepare symbol insert.";
         }
       }
 
@@ -76,14 +142,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               "title" => "Added to Watchlist",
               "message" => "{$symbolInput} is now being tracked."
             ];
+            $activityStatus = 'Success';
+            $activityNotes = sprintf('Added %s to watchlist.', $symbolInput);
           } else {
             $alert = [
               "type" => "error",
               "title" => "Add Failed",
               "message" => "Unable to add the selected symbol. Please try again."
             ];
+            $activityStatus = 'Failed';
+            $activityNotes = sprintf('Watchlist add failed for %s: database error.', $symbolInput);
           }
           $stmtWatch->close();
+        } else {
+          $activityStatus = 'Failed';
+          $activityNotes = sprintf('Watchlist add failed for %s: unable to prepare statement.', $symbolInput ?: 'N/A');
         }
       } else {
         $alert = [
@@ -91,6 +164,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           "title" => "Add Failed",
           "message" => "Unable to register the selected ticker."
         ];
+        if (!$activityStatus) {
+          $activityStatus = 'Failed';
+          $activityNotes = sprintf('Watchlist add failed: could not register symbol %s.', $symbolInput ?: 'N/A');
+        }
       }
     }
   } elseif ($action === "delete") {
@@ -105,16 +182,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "title" => "Removed",
             "message" => "Symbol removed from your watchlist."
           ];
+          $activityStatus = 'Success';
+          $activityNotes = sprintf('Removed watchlist entry #%d.', $watchlistId);
         } else {
           $alert = [
             "type" => "error",
             "title" => "Delete Failed",
             "message" => "Unable to remove the selected item."
           ];
+          $activityStatus = 'Failed';
+          $activityNotes = sprintf('Watchlist delete failed for entry #%d.', $watchlistId);
         }
         $stmtDelete->close();
+      } else {
+        $activityStatus = 'Failed';
+        $activityNotes = sprintf('Watchlist delete failed for entry #%d: unable to prepare statement.', $watchlistId);
       }
+    } else {
+      $activityStatus = 'Failed';
+      $activityNotes = 'Watchlist delete failed: invalid identifier supplied.';
     }
+  }
+
+  if ($activityStatus && !$activityLogged && $userId > 0) {
+    recordActivity(
+      $conn,
+      $userId,
+      'Watchlist Update',
+      'portfolio/watchlist',
+      $activityNotes,
+      $activityStatus
+    );
+    $activityLogged = true;
   }
 }
 
