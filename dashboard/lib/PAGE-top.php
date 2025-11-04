@@ -61,6 +61,46 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
 <script>var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };</script>
 <script async src="<?= URL_PUBLIC ?>admin.js?id=1"></script>
 <?php include 'fetch.php'; ?>
+<?php
+$navNotifications = [];
+$navNotificationsTotal = 0;
+$navNotificationsUnread = 0;
+
+if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
+  $navUserId = (int) $active_user['user_id'];
+  if ($navUserId > 0) {
+    try {
+      $navLimit = 6;
+      $sqlNav = "SELECT notification_id, title, message, status, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?";
+      $stmtNav = mysqli_prepare($conn, $sqlNav);
+      if ($stmtNav) {
+        mysqli_stmt_bind_param($stmtNav, "ii", $navUserId, $navLimit);
+        mysqli_stmt_execute($stmtNav);
+        mysqli_stmt_bind_result($stmtNav, $navId, $navTitle, $navMessage, $navStatus, $navCreatedAt);
+        while (mysqli_stmt_fetch($stmtNav)) {
+          $row = [
+            "notification_id" => $navId,
+            "title" => $navTitle,
+            "message" => $navMessage,
+            "status" => $navStatus ?? 'Unread',
+            "created_at" => $navCreatedAt
+          ];
+          if (strcasecmp($row['status'], 'Read') !== 0) {
+            $navNotificationsUnread++;
+          }
+          $navNotifications[] = $row;
+        }
+        mysqli_stmt_close($stmtNav);
+      }
+      $navNotificationsTotal = count($navNotifications);
+    } catch (Throwable $th) {
+      $navNotifications = [];
+      $navNotificationsTotal = 0;
+      $navNotificationsUnread = 0;
+    }
+  }
+}
+?>
 </head>
 
 <body class="hold-transition sidebar-mini layout-fixed">
@@ -85,61 +125,63 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
           </li>
 
           <!-- Notifications Dropdown -->
-          <li class="nav-item dropdown">
-            <a class="nav-link" data-toggle="dropdown" href="#">
+          <li class="nav-item dropdown notifications-nav">
+            <a class="nav-link" data-toggle="dropdown" href="#" role="button">
               <i class="far fa-bell"></i>
-              <span class="badge badge-warning navbar-badge">4</span>
+              <span class="badge badge-warning navbar-badge<?= $navNotificationsUnread > 0 ? '' : ' d-none' ?>">
+                <?= $navNotificationsUnread ?>
+              </span>
             </a>
             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notifications-container">
-              <span class="dropdown-header">4 Notifications</span>
+              <span class="dropdown-header">
+                <?= $navNotificationsTotal > 0 ? $navNotificationsTotal . ' Notifications' : 'No notifications' ?>
+              </span>
+<?php if ($navNotificationsTotal === 0) : ?>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item text-center text-muted small">
+                  You're all caught up!
+                </div>
+              <?php else : ?>
+                <?php foreach ($navNotifications as $note) :
+                  $noteStatus = $note['status'] ?? 'Unread';
+                  $noteIsRead = strcasecmp($noteStatus, 'Read') === 0;
+                  $noteTitle = $note['title'] !== null && $note['title'] !== '' ? $note['title'] : 'Notification';
+                  $noteMessage = $note['message'] ?? '';
+                  $noteDate = $note['created_at'] ? date('M j, Y g:i A', strtotime($note['created_at'])) : '';
+                  $payload = htmlspecialchars(json_encode([
+                    'title' => $noteTitle,
+                    'message' => $noteMessage,
+                    'created' => $noteDate,
+                    'status' => $noteStatus
+                  ]), ENT_QUOTES, 'UTF-8');
+                ?>
+                  <div class="dropdown-divider"></div>
+                  <div class="dropdown-item notification-item<?= $noteIsRead ? ' read' : '' ?>"
+                    data-id="<?= (int) $note['notification_id'] ?>"
+                    data-payload="<?= $payload ?>">
+                    <div class="notification-message" title="<?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>">
+                      <div class="font-weight-semibold">
+                        <?= htmlspecialchars($noteTitle, ENT_QUOTES, 'UTF-8') ?>
+                      </div>
+                      <small class="text-muted d-block">
+                        <?= htmlspecialchars($noteDate, ENT_QUOTES, 'UTF-8') ?>
+                      </small>
+                      <small class="text-secondary d-block text-truncate">
+                        <?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>
+                      </small>
+                    </div>
+                    <div class="notification-actions text-right mt-1">
+                      <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
+                          class="fas fa-check-circle"></i></a>
+                      <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
               <div class="dropdown-divider"></div>
-              <div class="dropdown-item notification-item">
-                <div class="notification-message">
-                  <i class="fas fa-envelope mr-2"></i> New message from support
-                </div>
-                <div class="notification-actions text-right mt-1">
-                  <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
-                      class="fas fa-check-circle"></i></a>
-                  <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
-                </div>
-              </div>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-item notification-item">
-                <div class="notification-message">
-                  <i class="fas fa-exclamation-triangle mr-2"></i> Margin call warning
-                </div>
-                <div class="notification-actions text-right mt-1">
-                  <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
-                      class="fas fa-check-circle"></i></a>
-                  <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
-                </div>
-              </div>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-item notification-item">
-                <div class="notification-message">
-                  <i class="fas fa-file-invoice-dollar mr-2"></i> Dividend for MSFT posted
-                </div>
-                <div class="notification-actions text-right mt-1">
-                  <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
-                      class="fas fa-check-circle"></i></a>
-                  <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
-                </div>
-              </div>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-item notification-item">
-                <div class="notification-message">
-                  <i class="fas fa-chart-line mr-2"></i> GOOGL stock up 5%
-                </div>
-                <div class="notification-actions text-right mt-1">
-                  <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
-                      class="fas fa-check-circle"></i></a>
-                  <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
-                </div>
-              </div>
-              <div class="dropdown-divider"></div>
+              <a href="<?= URL_HOST ?>my-account/notifications.php" class="dropdown-item dropdown-footer text-primary">View all notifications</a>
             </div>
           </li>
-
           <style>
             .notification-item.read .notification-message {
               opacity: 0.6;
@@ -147,6 +189,10 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
 
             .notification-actions a {
               text-decoration: none;
+            }
+
+            .notification-item {
+              cursor: pointer;
             }
           </style>
 
@@ -181,43 +227,116 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
               const savedTheme = localStorage.getItem('theme') || 'light';
               setTheme(savedTheme);
 
-              // Notifications
+              // Notifications Dropdown Logic
               const notificationContainer = document.querySelector('.notifications-container');
-              const notificationBadge = document.querySelector('.navbar-badge');
-              const notificationHeader = document.querySelector('.dropdown-header');
+              const notificationBadge = document.querySelector('.notifications-nav .navbar-badge');
+              const notificationHeader = notificationContainer ? notificationContainer.querySelector('.dropdown-header') : null;
+
+              const escapeHtml = (value) => {
+                const div = document.createElement('div');
+                div.textContent = value;
+                return div.innerHTML;
+              };
 
               function updateNotificationCount() {
-                const count = notificationContainer.querySelectorAll('.notification-item').length;
-                notificationBadge.textContent = count;
-                notificationHeader.textContent = `${count} Notifications`;
-                if (count === 0) {
-                  notificationBadge.style.display = 'none';
-                  notificationHeader.textContent = 'No new notifications';
+                if (!notificationContainer || !notificationBadge || !notificationHeader) return;
+                const total = notificationContainer.querySelectorAll('.notification-item').length;
+                const unread = notificationContainer.querySelectorAll('.notification-item:not(.read)').length;
+                notificationBadge.textContent = unread;
+                if (unread > 0) {
+                  notificationBadge.classList.remove('d-none');
+                } else {
+                  notificationBadge.classList.add('d-none');
                 }
+                notificationHeader.textContent = total > 0 ? `${total} Notifications` : 'No notifications';
               }
 
-              notificationContainer.addEventListener('click', function (e) {
-                const action = e.target.closest('.notification-read, .notification-delete');
-                if (!action) return;
+              function postNotificationAction(action, notificationId, onSuccess) {
+                if (!notificationId) return;
+                const formData = new FormData();
+                formData.append('req', action);
+                formData.append('notification_id', notificationId);
+                fetch(url.host + 'ajax-session.php', { method: 'POST', body: formData })
+                  .then((res) => res.text())
+                  .then((text) => {
+                    if (text.trim() === 'OK') {
+                      if (typeof onSuccess === 'function') {
+                        onSuccess();
+                      }
+                    } else {
+                      Swal.fire('Notification', text || 'Unable to update notification.', 'error');
+                    }
+                  })
+                  .catch((err) => console.error(err));
+              }
 
-                e.preventDefault();
-                const notificationItem = action.closest('.notification-item');
-                const divider = notificationItem.previousElementSibling;
-
-                if (action.classList.contains('notification-read')) {
-                  notificationItem.classList.toggle('read');
-                  action.classList.toggle('text-muted');
-                  action.classList.toggle('text-success');
+              function markNotificationAsRead(item) {
+                if (!item || item.classList.contains('read')) {
+                  return;
                 }
+                const notificationId = item.getAttribute('data-id');
+                postNotificationAction('notification_mark', notificationId, function () {
+                  item.classList.add('read');
+                  updateNotificationCount();
+                });
+              }
 
-                if (action.classList.contains('notification-delete')) {
-                  notificationItem.remove();
+              function deleteNotification(item) {
+                if (!item) return;
+                const notificationId = item.getAttribute('data-id');
+                postNotificationAction('notification_delete', notificationId, function () {
+                  const divider = item.previousElementSibling;
                   if (divider && divider.classList.contains('dropdown-divider')) {
                     divider.remove();
                   }
+                  item.remove();
                   updateNotificationCount();
+                });
+              }
+
+              function showNotificationDetails(item) {
+                if (!item) return;
+                const payload = item.getAttribute('data-payload');
+                if (!payload) return;
+                try {
+                  const data = JSON.parse(payload);
+                  const message = escapeHtml(data.message || '');
+                  const created = escapeHtml(data.created || '');
+                  Swal.fire({
+                    title: data.title || 'Notification',
+                    html: `<p class="text-left">${message.replace(/\n/g, '<br>')}</p>${created ? `<p class="text-muted text-left mb-0"><small>${created}</small></p>` : ''}`,
+                    icon: 'info',
+                    confirmButtonText: 'Close'
+                  });
+                  markNotificationAsRead(item);
+                } catch (error) {
+                  console.error('Unable to parse notification payload', error);
                 }
-              });
+              }
+
+              if (notificationContainer) {
+                notificationContainer.addEventListener('click', function (event) {
+                  const action = event.target.closest('.notification-read, .notification-delete');
+                  const item = event.target.closest('.notification-item');
+                  if (action && item) {
+                    event.preventDefault();
+                    if (action.classList.contains('notification-read')) {
+                      markNotificationAsRead(item);
+                    }
+                    if (action.classList.contains('notification-delete')) {
+                      deleteNotification(item);
+                    }
+                    return;
+                  }
+
+                  if (item && !event.target.closest('.notification-actions')) {
+                    event.preventDefault();
+                    showNotificationDetails(item);
+                  }
+                });
+
+                updateNotificationCount();
+              }
             });
           </script>
 
@@ -378,7 +497,6 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
                   <i class="nav-icon fas fa-user-shield text-purple"></i>
                   <p>Admin Management <i class="right fas fa-angle-left"></i></p>
                 </a>
-
                 <ul class="nav nav-treeview">
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/all-users.php" class="nav-link">
@@ -386,32 +504,16 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
                       <p>All Users</p>
                     </a>
                   </li>
-
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/notifications.php" class="nav-link">
                       <i class="fas fa-bell nav-icon text-purple"></i>
                       <p>Notifications</p>
                     </a>
                   </li>
-
-                  <li class="nav-item">
-                    <a href="<?= URL_HOST ?>admin/admin-logs.php" class="nav-link">
-                      <i class="fas fa-clipboard-list nav-icon text-purple"></i>
-                      <p>Admin Logs</p>
-                    </a>
-                  </li>
-
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>admin/general-settings.php" class="nav-link">
                       <i class="fas fa-cog nav-icon text-purple"></i>
                       <p>General</p>
-                    </a>
-                  </li>
-
-                  <li class="nav-item">
-                    <a href="<?= URL_HOST ?>admin/backup-restore.php" class="nav-link">
-                      <i class="fas fa-database nav-icon text-purple"></i>
-                      <p>Backup / Restore</p>
                     </a>
                   </li>
                 </ul>

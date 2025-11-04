@@ -78,7 +78,46 @@ if (isset($_POST["req"])) {
         exit("Invalid Email or Password!");
       }
 
-    // (C) LOGOUT
+    // (C) NOTIFICATIONS
+    case "notification_mark":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        exit("Please login first.");
+      }
+      $notifId = filter_input(INPUT_POST, "notification_id", FILTER_VALIDATE_INT);
+      if (!$notifId) {
+        exit("Invalid notification selected.");
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $stmt = mysqli_prepare($conn, "UPDATE notifications SET status='Read', read_at = IFNULL(read_at, NOW()) WHERE notification_id = ? AND user_id = ?");
+      mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
+      mysqli_stmt_execute($stmt);
+      $affected = mysqli_stmt_affected_rows($stmt);
+      mysqli_stmt_close($stmt);
+      if ($affected < 1) {
+        exit("Notification not found.");
+      }
+      exit("OK");
+
+    case "notification_delete":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        exit("Please login first.");
+      }
+      $notifId = filter_input(INPUT_POST, "notification_id", FILTER_VALIDATE_INT);
+      if (!$notifId) {
+        exit("Invalid notification selected.");
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $stmt = mysqli_prepare($conn, "DELETE FROM notifications WHERE notification_id = ? AND user_id = ?");
+      mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
+      mysqli_stmt_execute($stmt);
+      $affected = mysqli_stmt_affected_rows($stmt);
+      mysqli_stmt_close($stmt);
+      if ($affected < 1) {
+        exit("Notification not found.");
+      }
+      exit("OK");
+
+    // (D) LOGOUT
     case "out":
       unset($_SESSION["user"]);
       exit("OK");
