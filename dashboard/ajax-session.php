@@ -87,8 +87,20 @@ if (isset($_POST["req"])) {
       if (!$notifId) {
         exit("Invalid notification selected.");
       }
+      $statusInput = isset($_POST["status"]) ? strtolower(trim($_POST["status"])) : "read";
+      $isMarkRead = $statusInput !== "unread";
       $ownerId = (int) $_SESSION["user"]["user_id"];
-      $stmt = mysqli_prepare($conn, "UPDATE notifications SET status='Read', read_at = IFNULL(read_at, NOW()) WHERE notification_id = ? AND user_id = ?");
+
+      if ($isMarkRead) {
+        $stmt = mysqli_prepare($conn, "UPDATE notifications SET status='Read', read_at = IFNULL(read_at, NOW()) WHERE notification_id = ? AND user_id = ?");
+      } else {
+        $stmt = mysqli_prepare($conn, "UPDATE notifications SET status='Unread', read_at = NULL WHERE notification_id = ? AND user_id = ?");
+      }
+
+      if (!$stmt) {
+        exit("Unable to update notification.");
+      }
+
       mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
       mysqli_stmt_execute($stmt);
       $affected = mysqli_stmt_affected_rows($stmt);
@@ -116,6 +128,59 @@ if (isset($_POST["req"])) {
         exit("Notification not found.");
       }
       exit("OK");
+
+    case "notification_fetch":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        header("Content-Type: application/json");
+        exit(json_encode([
+          "success" => false,
+          "message" => "Please login first."
+        ]));
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $limit = filter_input(INPUT_POST, "limit", FILTER_VALIDATE_INT);
+      if (!$limit || $limit < 1 || $limit > 20) {
+        $limit = 6;
+      }
+
+      $notifications = [];
+      $unread = 0;
+      $stmt = mysqli_prepare($conn, "SELECT notification_id, title, message, status, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?");
+      if (!$stmt) {
+        header("Content-Type: application/json");
+        exit(json_encode([
+          "success" => false,
+          "message" => "Unable to fetch notifications."
+        ]));
+      }
+
+      mysqli_stmt_bind_param($stmt, "ii", $ownerId, $limit);
+      mysqli_stmt_execute($stmt);
+      mysqli_stmt_bind_result($stmt, $notificationId, $title, $message, $status, $createdAt);
+      while (mysqli_stmt_fetch($stmt)) {
+        $statusValue = $status ?? "Unread";
+        $isRead = strcasecmp($statusValue, "Read") === 0;
+        if (!$isRead) {
+          $unread++;
+        }
+        $notifications[] = [
+          "notification_id" => (int) $notificationId,
+          "title" => $title ?? "Notification",
+          "message" => $message ?? "",
+          "status" => $statusValue,
+          "created_at" => $createdAt,
+          "created_display" => $createdAt ? date("M j, Y g:i A", strtotime($createdAt)) : ""
+        ];
+      }
+      mysqli_stmt_close($stmt);
+
+      header("Content-Type: application/json");
+      exit(json_encode([
+        "success" => true,
+        "total" => count($notifications),
+        "unread" => $unread,
+        "notifications" => $notifications
+      ]));
 
     // (D) LOGOUT
     case "out":

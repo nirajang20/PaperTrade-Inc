@@ -133,51 +133,55 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               </span>
             </a>
             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notifications-container">
-              <span class="dropdown-header">
+              <span class="dropdown-header" data-role="notifications-header">
                 <?= $navNotificationsTotal > 0 ? $navNotificationsTotal . ' Notifications' : 'No notifications' ?>
               </span>
-<?php if ($navNotificationsTotal === 0) : ?>
-                <div class="dropdown-divider"></div>
-                <div class="dropdown-item text-center text-muted small">
-                  You're all caught up!
-                </div>
-              <?php else : ?>
-                <?php foreach ($navNotifications as $note) :
-                  $noteStatus = $note['status'] ?? 'Unread';
-                  $noteIsRead = strcasecmp($noteStatus, 'Read') === 0;
-                  $noteTitle = $note['title'] !== null && $note['title'] !== '' ? $note['title'] : 'Notification';
-                  $noteMessage = $note['message'] ?? '';
-                  $noteDate = $note['created_at'] ? date('M j, Y g:i A', strtotime($note['created_at'])) : '';
-                  $payload = htmlspecialchars(json_encode([
-                    'title' => $noteTitle,
-                    'message' => $noteMessage,
-                    'created' => $noteDate,
-                    'status' => $noteStatus
-                  ]), ENT_QUOTES, 'UTF-8');
-                ?>
+              <div class="notifications-body">
+                <?php if ($navNotificationsTotal === 0) : ?>
                   <div class="dropdown-divider"></div>
-                  <div class="dropdown-item notification-item<?= $noteIsRead ? ' read' : '' ?>"
-                    data-id="<?= (int) $note['notification_id'] ?>"
-                    data-payload="<?= $payload ?>">
-                    <div class="notification-message" title="<?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>">
-                      <div class="font-weight-semibold">
-                        <?= htmlspecialchars($noteTitle, ENT_QUOTES, 'UTF-8') ?>
-                      </div>
-                      <small class="text-muted d-block">
-                        <?= htmlspecialchars($noteDate, ENT_QUOTES, 'UTF-8') ?>
-                      </small>
-                      <small class="text-secondary d-block text-truncate">
-                        <?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>
-                      </small>
-                    </div>
-                    <div class="notification-actions text-right mt-1">
-                      <a href="#" class="text-success mr-2 notification-read" title="Mark as Read"><i
-                          class="fas fa-check-circle"></i></a>
-                      <a href="#" class="text-danger notification-delete" title="Delete"><i class="fas fa-trash"></i></a>
-                    </div>
+                  <div class="dropdown-item text-center text-muted small notifications-empty">
+                    You're all caught up!
                   </div>
-                <?php endforeach; ?>
-              <?php endif; ?>
+                <?php else : ?>
+                  <?php foreach ($navNotifications as $note) :
+                    $noteStatus = $note['status'] ?? 'Unread';
+                    $noteIsRead = strcasecmp($noteStatus, 'Read') === 0;
+                    $noteTitle = $note['title'] !== null && $note['title'] !== '' ? $note['title'] : 'Notification';
+                    $noteMessage = $note['message'] ?? '';
+                    $noteDate = $note['created_at'] ? date('M j, Y g:i A', strtotime($note['created_at'])) : '';
+                    $payload = htmlspecialchars(json_encode([
+                      'title' => $noteTitle,
+                      'message' => $noteMessage,
+                      'created' => $noteDate,
+                      'status' => $noteStatus
+                    ]), ENT_QUOTES, 'UTF-8');
+                  ?>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item notification-item<?= $noteIsRead ? ' read' : '' ?>"
+                      data-id="<?= (int) $note['notification_id'] ?>"
+                      data-payload="<?= $payload ?>">
+                      <div class="notification-message" title="<?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>">
+                        <div class="font-weight-semibold">
+                          <?= htmlspecialchars($noteTitle, ENT_QUOTES, 'UTF-8') ?>
+                        </div>
+                        <small class="text-muted d-block">
+                          <?= htmlspecialchars($noteDate, ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+                        <small class="text-secondary d-block text-truncate">
+                          <?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>
+                        </small>
+                      </div>
+                      <div class="notification-actions text-right mt-1">
+                        <a href="#"
+                          class="notification-toggle<?= $noteIsRead ? ' text-secondary' : ' text-success' ?>"
+                          title="<?= $noteIsRead ? 'Mark as Unread' : 'Mark as Read' ?>">
+                          <i class="fas fa-check-circle"></i>
+                        </a>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </div>
               <div class="dropdown-divider"></div>
               <a href="<?= URL_HOST ?>my-account/notifications.php" class="dropdown-item dropdown-footer text-primary">View all notifications</a>
             </div>
@@ -231,6 +235,10 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               const notificationContainer = document.querySelector('.notifications-container');
               const notificationBadge = document.querySelector('.notifications-nav .navbar-badge');
               const notificationHeader = notificationContainer ? notificationContainer.querySelector('.dropdown-header') : null;
+              const notificationBody = notificationContainer ? notificationContainer.querySelector('.notifications-body') : null;
+              const NOTIFICATION_POLL_INTERVAL = 60000;
+              let notificationPollTimer = null;
+              let notificationFetchInProgress = false;
 
               const escapeHtml = (value) => {
                 const div = document.createElement('div');
@@ -239,23 +247,34 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               };
 
               function updateNotificationCount() {
-                if (!notificationContainer || !notificationBadge || !notificationHeader) return;
+                if (!notificationContainer) return;
                 const total = notificationContainer.querySelectorAll('.notification-item').length;
                 const unread = notificationContainer.querySelectorAll('.notification-item:not(.read)').length;
-                notificationBadge.textContent = unread;
-                if (unread > 0) {
-                  notificationBadge.classList.remove('d-none');
-                } else {
-                  notificationBadge.classList.add('d-none');
+                if (notificationBadge) {
+                  notificationBadge.textContent = unread;
+                  if (unread > 0) {
+                    notificationBadge.classList.remove('d-none');
+                  } else {
+                    notificationBadge.classList.add('d-none');
+                  }
                 }
-                notificationHeader.textContent = total > 0 ? `${total} Notifications` : 'No notifications';
+                if (notificationHeader) {
+                  notificationHeader.textContent = total > 0 ? `${total} Notifications` : 'No notifications';
+                }
               }
 
-              function postNotificationAction(action, notificationId, onSuccess) {
+              function postNotificationAction(action, notificationId, onSuccess, extraData) {
                 if (!notificationId) return;
                 const formData = new FormData();
                 formData.append('req', action);
                 formData.append('notification_id', notificationId);
+                if (extraData && typeof extraData === 'object') {
+                  Object.keys(extraData).forEach((key) => {
+                    if (extraData[key] !== undefined && extraData[key] !== null) {
+                      formData.append(key, extraData[key]);
+                    }
+                  });
+                }
                 fetch(url.host + 'ajax-session.php', { method: 'POST', body: formData })
                   .then((res) => res.text())
                   .then((text) => {
@@ -270,28 +289,160 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                   .catch((err) => console.error(err));
               }
 
+              function applyNotificationReadState(item, isRead) {
+                if (!item) return;
+                item.classList.toggle('read', isRead);
+                const toggleLink = item.querySelector('.notification-toggle');
+                if (toggleLink) {
+                  toggleLink.classList.toggle('text-success', !isRead);
+                  toggleLink.classList.toggle('text-secondary', isRead);
+                  toggleLink.setAttribute('title', isRead ? 'Mark as Unread' : 'Mark as Read');
+                }
+                const payload = item.getAttribute('data-payload');
+                if (payload) {
+                  try {
+                    const data = JSON.parse(payload);
+                    data.status = isRead ? 'Read' : 'Unread';
+                    item.setAttribute('data-payload', JSON.stringify(data));
+                  } catch (error) {
+                    console.warn('Unable to update notification payload', error);
+                  }
+                }
+              }
+
+              function renderNotifications(list) {
+                if (!notificationBody) return;
+                notificationBody.innerHTML = '';
+
+                if (!Array.isArray(list) || list.length === 0) {
+                  const divider = document.createElement('div');
+                  divider.className = 'dropdown-divider';
+                  notificationBody.appendChild(divider);
+
+                  const empty = document.createElement('div');
+                  empty.className = 'dropdown-item text-center text-muted small notifications-empty';
+                  empty.textContent = "You're all caught up!";
+                  notificationBody.appendChild(empty);
+                  return;
+                }
+
+                list.forEach((note) => {
+                  const divider = document.createElement('div');
+                  divider.className = 'dropdown-divider';
+                  notificationBody.appendChild(divider);
+
+                  const status = typeof note.status === 'string' ? note.status : 'Unread';
+                  const isRead = status.toLowerCase() === 'read';
+                  const titleText = note.title || 'Notification';
+                  const messageText = note.message || '';
+                  const createdText = note.created_display || '';
+
+                  const item = document.createElement('div');
+                  item.className = 'dropdown-item notification-item' + (isRead ? ' read' : '');
+                  item.dataset.id = String(note.notification_id || '');
+                  item.setAttribute('data-payload', JSON.stringify({
+                    title: titleText,
+                    message: messageText,
+                    created: createdText,
+                    status: status
+                  }));
+
+                  const messageWrapper = document.createElement('div');
+                  messageWrapper.className = 'notification-message';
+                  if (messageText) {
+                    messageWrapper.setAttribute('title', messageText);
+                  }
+
+                  const titleEl = document.createElement('div');
+                  titleEl.className = 'font-weight-semibold';
+                  titleEl.textContent = titleText;
+
+                  const dateEl = document.createElement('small');
+                  dateEl.className = 'text-muted d-block';
+                  dateEl.textContent = createdText;
+
+                  const messageEl = document.createElement('small');
+                  messageEl.className = 'text-secondary d-block text-truncate';
+                  messageEl.textContent = messageText;
+
+                  messageWrapper.appendChild(titleEl);
+                  messageWrapper.appendChild(dateEl);
+                  messageWrapper.appendChild(messageEl);
+
+                  const actionsWrapper = document.createElement('div');
+                  actionsWrapper.className = 'notification-actions text-right mt-1';
+
+                  const toggleLink = document.createElement('a');
+                  toggleLink.href = '#';
+                  toggleLink.className = 'notification-toggle ' + (isRead ? 'text-secondary' : 'text-success');
+                  toggleLink.setAttribute('title', isRead ? 'Mark as Unread' : 'Mark as Read');
+
+                  const iconEl = document.createElement('i');
+                  iconEl.className = 'fas fa-check-circle';
+                  toggleLink.appendChild(iconEl);
+
+                  actionsWrapper.appendChild(toggleLink);
+
+                  item.appendChild(messageWrapper);
+                  item.appendChild(actionsWrapper);
+
+                  notificationBody.appendChild(item);
+                });
+              }
+
+              function toggleNotificationState(item, targetStatus) {
+                if (!item) return;
+                const notificationId = item.getAttribute('data-id');
+                postNotificationAction(
+                  'notification_mark',
+                  notificationId,
+                  function () {
+                    applyNotificationReadState(item, targetStatus === 'read');
+                    updateNotificationCount();
+                  },
+                  { status: targetStatus }
+                );
+              }
+
               function markNotificationAsRead(item) {
                 if (!item || item.classList.contains('read')) {
                   return;
                 }
-                const notificationId = item.getAttribute('data-id');
-                postNotificationAction('notification_mark', notificationId, function () {
-                  item.classList.add('read');
-                  updateNotificationCount();
-                });
+                toggleNotificationState(item, 'read');
               }
 
-              function deleteNotification(item) {
-                if (!item) return;
-                const notificationId = item.getAttribute('data-id');
-                postNotificationAction('notification_delete', notificationId, function () {
-                  const divider = item.previousElementSibling;
-                  if (divider && divider.classList.contains('dropdown-divider')) {
-                    divider.remove();
-                  }
-                  item.remove();
-                  updateNotificationCount();
-                });
+              function fetchNotifications() {
+                if (!notificationContainer || notificationFetchInProgress) {
+                  return;
+                }
+                notificationFetchInProgress = true;
+                const formData = new FormData();
+                formData.append('req', 'notification_fetch');
+                formData.append('limit', '6');
+                fetch(url.host + 'ajax-session.php', { method: 'POST', body: formData })
+                  .then((res) => res.text())
+                  .then((text) => {
+                    let data;
+                    try {
+                      data = JSON.parse(text);
+                    } catch (error) {
+                      throw new Error(text || 'Invalid response');
+                    }
+                    if (!data || data.success !== true || !Array.isArray(data.notifications)) {
+                      if (data && data.message) {
+                        console.warn('Notification fetch:', data.message);
+                      }
+                      return;
+                    }
+                    renderNotifications(data.notifications);
+                    updateNotificationCount();
+                  })
+                  .catch((err) => {
+                    console.error('Notification fetch failed', err);
+                  })
+                  .finally(() => {
+                    notificationFetchInProgress = false;
+                  });
               }
 
               function showNotificationDetails(item) {
@@ -314,18 +465,23 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 }
               }
 
+              function startNotificationPolling() {
+                if (!notificationContainer) return;
+                if (notificationPollTimer) {
+                  clearInterval(notificationPollTimer);
+                }
+                fetchNotifications();
+                notificationPollTimer = setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL);
+              }
+
               if (notificationContainer) {
                 notificationContainer.addEventListener('click', function (event) {
-                  const action = event.target.closest('.notification-read, .notification-delete');
                   const item = event.target.closest('.notification-item');
-                  if (action && item) {
+                  const toggleAction = event.target.closest('.notification-toggle');
+                  if (toggleAction && item) {
                     event.preventDefault();
-                    if (action.classList.contains('notification-read')) {
-                      markNotificationAsRead(item);
-                    }
-                    if (action.classList.contains('notification-delete')) {
-                      deleteNotification(item);
-                    }
+                    const targetStatus = item.classList.contains('read') ? 'unread' : 'read';
+                    toggleNotificationState(item, targetStatus);
                     return;
                   }
 
@@ -336,6 +492,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 });
 
                 updateNotificationCount();
+                startNotificationPolling();
               }
             });
           </script>
@@ -476,7 +633,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                         class="fas fa-id-card nav-icon text-danger"></i>
                       <p>Profile</p>
                     </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>notifications.php" class="nav-link"><i
+                  <li class="nav-item"><a href="<?= URL_HOST ?>my-account/notifications.php" class="nav-link"><i
                         class="fas fa-bell nav-icon text-danger"></i>
                       <p>Notifications</p>
                     </a></li>
