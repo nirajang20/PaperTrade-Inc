@@ -2,6 +2,33 @@
 require "../lib/Core.php";
 require PATH_LIB . "PAGE-top.php";
 
+function timeAgo($datetime) {
+    $time = strtotime($datetime);
+    $diff = time() - $time;
+
+    if ($diff < 60) {
+        return 'just now';
+    } elseif ($diff < 3600) {
+        $mins = floor($diff / 60);
+        return $mins . ' minute' . ($mins > 1 ? 's' : '') . ' ago';
+    } elseif ($diff < 86400) {
+        $hours = floor($diff / 3600);
+        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+    } elseif ($diff < 172800) {
+        return 'yesterday';
+    } elseif ($diff < 2592000) {
+        $days = floor($diff / 86400);
+        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+    } elseif ($diff < 31536000) {
+        $months = floor($diff / 2592000);
+        return $months . ' month' . ($months > 1 ? 's' : '') . ' ago';
+    } else {
+        $years = floor($diff / 31536000);
+        return $years . ' year' . ($years > 1 ? 's' : '') . ' ago';
+    }
+}
+
+
 if (!function_exists("account_notifications_escape")) {
   function account_notifications_escape(?string $value): string
   {
