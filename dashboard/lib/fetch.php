@@ -8,5 +8,4 @@ $active_user = mysqli_fetch_array($user_details);
 $active_page = basename($_SERVER['PHP_SELF']);
 $active_page = explode('.',$active_page);
 
-
 } ?>

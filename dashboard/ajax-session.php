@@ -119,7 +119,45 @@ if (isset($_POST["req"])) {
         exit("Invalid notification selected.");
       }
       $ownerId = (int) $_SESSION["user"]["user_id"];
-      $stmt = mysqli_prepare($conn, "DELETE FROM notifications WHERE notification_id = ? AND user_id = ?");
+      $stmt = mysqli_prepare($conn, "UPDATE notifications SET is_deleted = 1 WHERE notification_id = ? AND user_id = ?");
+      mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
+      mysqli_stmt_execute($stmt);
+      $affected = mysqli_stmt_affected_rows($stmt);
+      mysqli_stmt_close($stmt);
+      if ($affected < 1) {
+        exit("Notification not found.");
+      }
+      exit("OK");
+
+    case "notification_restore":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        exit("Please login first.");
+      }
+      $notifId = filter_input(INPUT_POST, "notification_id", FILTER_VALIDATE_INT);
+      if (!$notifId) {
+        exit("Invalid notification selected.");
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $stmt = mysqli_prepare($conn, "UPDATE notifications SET is_deleted = 0 WHERE notification_id = ? AND user_id = ?");
+      mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
+      mysqli_stmt_execute($stmt);
+      $affected = mysqli_stmt_affected_rows($stmt);
+      mysqli_stmt_close($stmt);
+      if ($affected < 1) {
+        exit("Notification not found.");
+      }
+      exit("OK");
+
+    case "notification_destroy":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        exit("Please login first.");
+      }
+      $notifId = filter_input(INPUT_POST, "notification_id", FILTER_VALIDATE_INT);
+      if (!$notifId) {
+        exit("Invalid notification selected.");
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $stmt = mysqli_prepare($conn, "DELETE FROM notifications WHERE notification_id = ? AND user_id = ? AND is_deleted = 1");
       mysqli_stmt_bind_param($stmt, "ii", $notifId, $ownerId);
       mysqli_stmt_execute($stmt);
       $affected = mysqli_stmt_affected_rows($stmt);
@@ -139,13 +177,23 @@ if (isset($_POST["req"])) {
       }
       $ownerId = (int) $_SESSION["user"]["user_id"];
       $limit = filter_input(INPUT_POST, "limit", FILTER_VALIDATE_INT);
-      if (!$limit || $limit < 1 || $limit > 20) {
+      if (!$limit || $limit < 1) {
         $limit = 6;
+      } elseif ($limit > 100) {
+        $limit = 100;
       }
+      $includeDeleted = isset($_POST["include_deleted"]) && (int)$_POST["include_deleted"] === 1;
 
       $notifications = [];
       $unread = 0;
-      $stmt = mysqli_prepare($conn, "SELECT notification_id, title, message, status, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?");
+      $sqlFetch = "SELECT notification_id, title, message, status, created_at, is_deleted
+                   FROM notifications
+                   WHERE user_id = ?";
+      if (!$includeDeleted) {
+        $sqlFetch .= " AND is_deleted = 0";
+      }
+      $sqlFetch .= " ORDER BY created_at DESC LIMIT ?";
+      $stmt = mysqli_prepare($conn, $sqlFetch);
       if (!$stmt) {
         header("Content-Type: application/json");
         exit(json_encode([
@@ -156,11 +204,11 @@ if (isset($_POST["req"])) {
 
       mysqli_stmt_bind_param($stmt, "ii", $ownerId, $limit);
       mysqli_stmt_execute($stmt);
-      mysqli_stmt_bind_result($stmt, $notificationId, $title, $message, $status, $createdAt);
+      mysqli_stmt_bind_result($stmt, $notificationId, $title, $message, $status, $createdAt, $isDeleted);
       while (mysqli_stmt_fetch($stmt)) {
         $statusValue = $status ?? "Unread";
         $isRead = strcasecmp($statusValue, "Read") === 0;
-        if (!$isRead) {
+        if (!$isRead && !$isDeleted) {
           $unread++;
         }
         $notifications[] = [
@@ -169,7 +217,8 @@ if (isset($_POST["req"])) {
           "message" => $message ?? "",
           "status" => $statusValue,
           "created_at" => $createdAt,
-          "created_display" => $createdAt ? date("M j, Y g:i A", strtotime($createdAt)) : ""
+          "created_display" => $createdAt ? date("M j, Y g:i A", strtotime($createdAt)) : "",
+          "is_deleted" => (int)$isDeleted
         ];
       }
       mysqli_stmt_close($stmt);

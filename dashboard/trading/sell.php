@@ -306,7 +306,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["sell_order_submit"]))
       $conn,
       (int) $active_user['user_id'],
       'Sell Order',
-      'trading/sell',
+      'Trading',
       $activityNotes,
       $activityStatus
     );
