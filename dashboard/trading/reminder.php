@@ -1,6 +1,5 @@
 <?php
 require "../lib/Core.php";
-require PATH_LIB . "PAGE-top.php";
 
 $current_user_id = $_SESSION['user_id'] ?? 1; // fallback for testing
 
@@ -15,7 +14,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_reminder'])) {
   $sql = "INSERT INTO reminders (user_id, title, remind_time, category, description, status, recurring)
           VALUES ('$current_user_id', '$title', '$remind_time', '$category', '$description', 'Pending', '$recurring')";
   $conn->query($sql);
-  header("Location: reminder.php");
+
+  // ✅ Show success message then redirect
+  echo "<div style='
+          position:fixed;top:20px;right:20px;
+          background:#4BB543;color:white;
+          padding:12px 18px;border-radius:6px;
+          box-shadow:0 2px 8px rgba(0,0,0,0.2);
+          font-weight:600;z-index:9999;'>✅ Reminder Added Successfully</div>";
+  echo "<script>
+          setTimeout(() => { window.location='reminder.php'; }, 1200);
+        </script>";
   exit;
 }
 
@@ -24,7 +33,7 @@ if (isset($_GET['mark']) && isset($_GET['id'])) {
   $id = (int) $_GET['id'];
   $status = ($_GET['mark'] === 'done') ? 'Completed' : 'Missed';
   $conn->query("UPDATE reminders SET status='$status' WHERE id=$id AND user_id=$current_user_id");
-  header("Location: reminder.php");
+  echo "<script>window.location='reminder.php';</script>";
   exit;
 }
 
@@ -57,6 +66,8 @@ $stats = $conn->query($stats_sql)->fetch_assoc();
 $done = $stats['done'] ?? 0;
 $total = $stats['total'] ?? 0;
 $percent = ($total > 0) ? round(($done / $total) * 100) : 0;
+
+require PATH_LIB . "PAGE-top.php"; // ✅ moved here safely
 ?>
 
 <section class="content">
