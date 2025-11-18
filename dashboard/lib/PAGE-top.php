@@ -16,6 +16,7 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
 <html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
 <title>Dashboard</title>
 <script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM="
   crossorigin="anonymous"></script>
@@ -54,12 +55,12 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js
 https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
 " rel="stylesheet">
 
-
 <!-- favicon   -->
 <link rel="icon" href="<?= URL_HOST ?>dist/img/favicon.png" />
 
 <script>var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };</script>
 <script async src="<?= URL_PUBLIC ?>admin.js?id=1"></script>
+
 <?php include 'fetch.php'; ?>
 <?php
 $navNotifications = [];
@@ -101,7 +102,23 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
   }
 }
 ?>
+
+<!-- =========================================== -->
+<!--   ✅ ADDED ONLY MISSING FULLCALENDAR FILES   -->
+<!-- =========================================== -->
+
+<!-- FullCalendar CSS -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/fullcalendar/main.css">
+
+<!-- moment.js (required for FullCalendar) -->
+<script src="<?= URL_HOST ?>plugins/moment/moment.min.js"></script>
+
+<!-- FullCalendar JS -->
+<script src="<?= URL_HOST ?>plugins/fullcalendar/main.js"></script>
+
+
 </head>
+
 
 <body class="hold-transition sidebar-mini layout-fixed">
   <div class="wrapper">
@@ -684,23 +701,32 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 
 
       <!-- Active link highlight -->
-      <script type="text/javascript">
-        const currentlocation = location.href;
-        const menuItem = document.querySelectorAll('.nav-link');
-        menuItem.forEach(item => {
-          if (item.href === currentlocation) {
-            item.classList.add('active');
-            item.closest('.has-treeview')?.classList.add('menu-open');
-            item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
-            item.querySelector('p')?.classList.add('text-success');
-            item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
-            let parentText = item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.textContent;
-            if (parentText) {
-              document.title += " | " + parentText;
-            }
-          }
-        });
-      </script>
+<script>
+const currentPath = location.pathname;
+const menuItem = document.querySelectorAll('.nav-link');
+
+menuItem.forEach(item => {
+  let href = item.getAttribute("href");
+
+  // Ignore empty links, hash links, or javascript links
+  if (!href || href === "#" || href.startsWith("javascript")) return;
+
+  const itemPath = new URL(href, location.origin).pathname;
+
+  if (itemPath === currentPath) {
+    item.classList.add('active');
+    item.closest('.has-treeview')?.classList.add('menu-open');
+    item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
+    item.querySelector('p')?.classList.add('text-success');
+    item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
+
+    let parentText = item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.textContent;
+    if (parentText) {
+      document.title = parentText + " | PaperTrade";
+    }
+  }
+});
+</script>
 
       <style>
         /* Sidebar Enhancements */
