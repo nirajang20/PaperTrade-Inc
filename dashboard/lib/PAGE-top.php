@@ -103,10 +103,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 }
 ?>
 
-<!-- =========================================== -->
-<!--   ✅ ADDED ONLY MISSING FULLCALENDAR FILES   -->
-<!-- =========================================== -->
-
+dscdcvsdvsdvsdvsdvsdvsd
 <!-- FullCalendar CSS -->
 <link rel="stylesheet" href="<?= URL_HOST ?>plugins/fullcalendar/main.css">
 
