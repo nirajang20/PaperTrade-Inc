@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PaperTrade | Page Not Found</title>
+
+<style>
+:root {
+  --primary: #6c5ce7;
+  --accent: #00d4ff;
+  --text-light: #f8fafc;
+  --text-muted: #94a3b8;
+  --btn-blue: #3b82f6;
+  --btn-blue-dark: #2563eb;
+}
+
+/* ===== PAGE BASE ===== */
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  color: var(--text-light);
+  background: radial-gradient(circle at 0% 0%, rgba(108,92,231,0.55), transparent 55%),
+              radial-gradient(circle at 100% 0%, rgba(0,212,255,0.45), transparent 60%),
+              linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  position: relative;
+  opacity: 0;
+  animation: fadeIn 1.4s ease-out forwards;
+}
+
+/* Floating glow effects */
+body::before,
+body::after {
+  content: "";
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.55;
+  animation: float 20s ease-in-out infinite;
+  pointer-events: none;
+}
+body::before {
+  background: rgba(108,92,231,0.45);
+  top: -150px;
+  left: -180px;
+}
+body::after {
+  background: rgba(0,212,255,0.35);
+  bottom: -200px;
+  right: -200px;
+  animation-delay: 5s;
+}
+
+/* ===== MAIN CONTENT ===== */
+h1 {
+  font-size: clamp(3.5rem, 7vw, 6rem);
+  margin: 0;
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(108,92,231,0.6), 0 0 60px rgba(0,212,255,0.4);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+/* ===== SUBTEXT ===== */
+p {
+  font-size: 1.15rem;
+  color: var(--text-muted);
+  max-width: 520px;
+  margin: 1.4rem auto 2.4rem;
+}
+
+/* ===== BUTTON ===== */
+a.btn {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--btn-blue), var(--btn-blue-dark));
+  color: var(--text-light);
+  text-decoration: none;
+  padding: 0.9rem 1.8rem;
+  border-radius: 10px;
+  margin-top: 0.4rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 20px rgba(59,130,246,0.4);
+}
+a.btn:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 0 30px rgba(59,130,246,0.7);
+}
+
+/* ===== COUNTDOWN CIRCLE ===== */
+.countdown-wrapper {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin-top: 20px;
+}
+
+svg {
+  transform: rotate(-90deg);
+}
+
+.circle-bg {
+  fill: none;
+  stroke: rgba(255,255,255,0.1);
+  stroke-width: 10;
+}
+
+.circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 440;
+  stroke-dashoffset: 440;
+  animation: countdownStroke 10s linear forwards;
+}
+
+.countdown-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.3rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-shadow: 0 0 10px rgba(0,212,255,0.7);
+}
+
+/* ===== FOOTER TEXT ===== */
+.subtext {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 1.2rem;
+}
+.tagline {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.8rem;
+  letter-spacing: 0.3px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes float {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(25px, -20px) scale(1.05); }
+}
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+@keyframes countdownStroke {
+  to { stroke-dashoffset: 0; }
+}
+</style>
+</head>
+
+<body>
+
+  <h1>404</h1>
+  <p>Oops, the page you're looking for doesn't exist.</p>
+
+  <a class="btn" href="/trade/dashboard/index.php">Return to Dashboard</a>
+
+  <!-- Countdown Circle Animation -->
+  <div class="countdown-wrapper">
+    <svg width="150" height="150">
+      <circle class="circle-bg" cx="75" cy="75" r="70"></circle>
+      <circle class="circle" cx="75" cy="75" r="70"></circle>
+    </svg>
+    <div class="countdown-number" id="countdown">10</div>
+  </div>
+
+  <div class="subtext">
+    You’ll be redirected automatically in <strong>10 seconds</strong>.<br>
+    If you believe this is a mistake, please check the URL or return to your homepage.
+  </div>
+
+  <div class="tagline">PaperTrade — Learn. Practice. Trade smarter.</div>
+
+<!-- Countdown script -->
+<script>
+  let timeLeft = 10;
+  const countdownEl = document.getElementById("countdown");
+
+  const timer = setInterval(() => {
+    timeLeft--;
+    countdownEl.textContent = timeLeft;
+
+    countdownEl.style.transform = "translate(-50%, -50%) scale(1.15)";
+    setTimeout(() => {
+      countdownEl.style.transform = "translate(-50%, -50%) scale(1)";
+    }, 150);
+
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      window.location.href = "/trade/dashboard/index.php";
+    }
+  }, 1000);
+</script>
+
+</body>
+</html>
