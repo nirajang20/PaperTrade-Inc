@@ -524,7 +524,7 @@ dscdcvsdvsdvsdvsdvsdvsd
               <div class="dropdown-divider"></div>
               <a href="#" class="dropdown-item">
                 <i class="fas fa-wallet mr-2"></i> Available Cash
-                <span class="float-right text-success" id="user-cash">$25,000</span>
+                <span class="float-right text-success" id="user-cash">$<?= $active_user['user_balance'] ?></span>
               </a>
               <div class="dropdown-divider"></div>
               <a href="javascript:void(0)" class="dropdown-item dropdown-footer text-danger" onclick="admin.bye()">
