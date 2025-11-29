@@ -417,6 +417,12 @@ document.addEventListener("DOMContentLoaded", function() {
         eventStartEditable:true,
         eventDurationEditable:false,
         headerToolbar:{ left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay' },
+        buttonText:{
+            today:'Today',
+            month:'Month',
+            week:'Week',
+            day:'Day'
+        },
         events:eventsFromPHP,
 
         dateClick:function(info){
@@ -454,11 +460,6 @@ document.addEventListener("DOMContentLoaded", function() {
             setTimeout(refreshCalendarSize, 220);
         }
     }).observe(document.body,{attributes:true,attributeFilter:["class"]});
-    // Fix capitalization for FullCalendar buttons
-    document.querySelectorAll(".fc-today-button").forEach(btn => btn.innerText = "Today");
-    document.querySelectorAll(".fc-dayGridMonth-button").forEach(btn => btn.innerText = "Month");
-    document.querySelectorAll(".fc-timeGridWeek-button").forEach(btn => btn.innerText = "Week");
-    document.querySelectorAll(".fc-timeGridDay-button").forEach(btn => btn.innerText = "Day");
 
     /* ADD BTN */
     $("#addReminderBtn").click(()=>$("#addReminderModal").modal("show"));
