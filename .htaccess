@@ -1,0 +1,6 @@
+# Enable Apache rewriting (safe and standard)
+Options -Indexes
+RewriteEngine On
+
+# Public 404 page
+ErrorDocument 404 /trade/404-public.php

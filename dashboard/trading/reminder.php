@@ -1,97 +1,512 @@
 <?php
+session_start();
 require "../lib/Core.php";
-require PATH_LIB . "PAGE-top.php"; ?>
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-          <div class="col-sm-6">
-            <h1>Calendar</h1>
-          </div>
-          <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item"><a href="#">Home</a></li>
-              <li class="breadcrumb-item active">Calendar</li>
-            </ol>
-          </div>
-        </div>
-      </div><!-- /.container-fluid -->
-    </section>
+$current_user_id = $_SESSION['user_id'] ?? 1;
 
-    <!-- Main content -->
-    <section class="content">
-      <div class="container-fluid">
-        <div class="row">
-          <div class="col-md-3">
-            <div class="sticky-top mb-3">
-              <div class="card">
-                <div class="card-header">
-                  <h4 class="card-title">Draggable Events</h4>
-                </div>
-                <div class="card-body">
-                  <!-- the events -->
-                  <div id="external-events">
-                    <div class="external-event bg-success ui-draggable ui-draggable-handle" style="position: relative;">Lunch</div>
-                    <div class="external-event bg-warning ui-draggable ui-draggable-handle" style="position: relative;">Go home</div>
-                    <div class="external-event bg-info ui-draggable ui-draggable-handle" style="position: relative;">Do homework</div>
-                    <div class="external-event bg-primary ui-draggable ui-draggable-handle" style="position: relative;">Work on UI design</div>
-                    <div class="external-event bg-danger ui-draggable ui-draggable-handle" style="position: relative;">Sleep tight</div>
-                    <div class="checkbox">
-                      <label for="drop-remove">
-                        <input type="checkbox" id="drop-remove">
-                        remove after drop
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                <!-- /.card-body -->
-              </div>
-              <!-- /.card -->
-              <div class="card">
-                <div class="card-header">
-                  <h3 class="card-title">Create Event</h3>
-                </div>
-                <div class="card-body">
-                  <div class="btn-group" style="width: 100%; margin-bottom: 10px;">
-                    <ul class="fc-color-picker" id="color-chooser">
-                      <li><a class="text-primary" href="#"><i class="fas fa-square"></i></a></li>
-                      <li><a class="text-warning" href="#"><i class="fas fa-square"></i></a></li>
-                      <li><a class="text-success" href="#"><i class="fas fa-square"></i></a></li>
-                      <li><a class="text-danger" href="#"><i class="fas fa-square"></i></a></li>
-                      <li><a class="text-muted" href="#"><i class="fas fa-square"></i></a></li>
-                    </ul>
-                  </div>
-                  <!-- /btn-group -->
-                  <div class="input-group">
-                    <input id="new-event" type="text" class="form-control" placeholder="Event Title">
+/* ============================
+   HANDLE DRAG UPDATE (AJAX)
+============================ */
+if (isset($_POST["drag_update"])) {
+    $id = intval($_POST["id"]);
+    $time = $_POST["remind_time"] ?? "";
 
-                    <div class="input-group-append">
-                      <button id="add-new-event" type="button" class="btn btn-primary">Add</button>
-                    </div>
-                    <!-- /btn-group -->
-                  </div>
-                  <!-- /input-group -->
-                </div>
-              </div>
+    if (!preg_match("/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/", $time)) {
+        echo json_encode(["status" => "error", "msg" => "Invalid time"]);
+        exit;
+    }
+
+    $time = mysqli_real_escape_string($conn, $time);
+    $check = $conn->query("SELECT id FROM reminders WHERE id=$id AND user_id=$current_user_id LIMIT 1");
+
+    if (!$check || $check->num_rows == 0) {
+        echo json_encode(["status" => "error", "msg" => "Reminder not found"]);
+        exit;
+    }
+
+    $conn->query("UPDATE reminders SET remind_time='$time', status='Pending' WHERE id=$id AND user_id=$current_user_id");
+    echo json_encode(["status" => "success"]);
+    exit;
+}
+
+/* ============================
+   AUTO-MARK MISSED
+============================ */
+$conn->query("
+    UPDATE reminders
+    SET status='Missed'
+    WHERE remind_time < NOW()
+      AND status='Pending'
+      AND user_id=$current_user_id
+");
+
+/* ============================
+   AUTO-GENERATE RECURRING
+============================ */
+$rec = $conn->query("
+    SELECT * FROM reminders
+    WHERE user_id=$current_user_id
+      AND recurring IN (1,2,3)
+");
+
+if ($rec && $rec->num_rows > 0) {
+    while ($r = $rec->fetch_assoc()) {
+        if ($r['recurring'] == 1) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 DAY)";
+        if ($r['recurring'] == 2) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 WEEK)";
+        if ($r['recurring'] == 3) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 MONTH)";
+        $conn->query("
+            INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
+            SELECT user_id,title,$next,category,description,'Pending',recurring
+            FROM reminders
+            WHERE id={$r['id']} AND $next <= NOW()
+        ");
+    }
+}
+
+/* ============================
+   FETCH REMINDERS
+============================ */
+$q = $conn->query("
+    SELECT * FROM reminders
+    WHERE user_id=$current_user_id
+    ORDER BY remind_time ASC
+");
+$reminders = $q ? $q->fetch_all(MYSQLI_ASSOC) : [];
+
+/* ============================
+   ADD REMINDER
+============================ */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_reminder"])) {
+    $title = mysqli_real_escape_string($conn, $_POST["title"]);
+    $category = mysqli_real_escape_string($conn, $_POST["category"]);
+    $description = mysqli_real_escape_string($conn, $_POST["description"]);
+    $remind_time = mysqli_real_escape_string($conn, $_POST["remind_time"]);
+    $rec = mysqli_real_escape_string($conn, $_POST["recurrence"]);
+    $recurring = ($rec=="daily"?1:($rec=="weekly"?2:($rec=="monthly"?3:0)));
+
+    $conn->query("
+        INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
+        VALUES ($current_user_id,'$title','$remind_time','$category','$description','Pending',$recurring)
+    ");
+
+    $_SESSION["flash_success"] = "✅ Reminder added!";
+    header("Location: reminder.php"); exit;
+}
+
+/* ============================
+   EDIT REMINDER
+============================ */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_reminder"])) {
+    $id = intval($_POST["id"]);
+    $title = mysqli_real_escape_string($conn, $_POST["title"]);
+    $category = mysqli_real_escape_string($conn, $_POST["category"]);
+    $description = mysqli_real_escape_string($conn, $_POST["description"]);
+    $remind_time = mysqli_real_escape_string($conn, $_POST["remind_time"]);
+    $rec = mysqli_real_escape_string($conn, $_POST["recurrence"]);
+    $recurring = ($rec=="daily"?1:($rec=="weekly"?2:($rec=="monthly"?3:0)));
+
+    $conn->query("
+        UPDATE reminders SET
+        title='$title',
+        remind_time='$remind_time',
+        category='$category',
+        description='$description',
+        recurring=$recurring
+        WHERE id=$id AND user_id=$current_user_id
+    ");
+
+    $_SESSION["flash_success"] = "✏️ Reminder updated!";
+    header("Location: reminder.php"); exit;
+}
+
+/* ============================
+   DELETE
+============================ */
+if (isset($_GET["delete"])) {
+    $id = intval($_GET["delete"]);
+    $conn->query("DELETE FROM reminders WHERE id=$id AND user_id=$current_user_id");
+    $_SESSION["flash_success"] = "🗑️ Deleted.";
+    header("Location: reminder.php"); exit;
+}
+
+/* ============================
+   DONE
+============================ */
+if (isset($_GET["done"])) {
+    $id = intval($_GET["done"]);
+    $conn->query("UPDATE reminders SET status='Completed' WHERE id=$id AND user_id=$current_user_id");
+    $_SESSION["flash_success"] = "🎉 Completed!";
+    header("Location: reminder.php"); exit;
+}
+
+/* ============================
+   SNOOZE
+============================ */
+if (isset($_GET["snooze"])) {
+    $id = intval($_GET["snooze"]);
+    $conn->query("
+        UPDATE reminders
+        SET remind_time = DATE_ADD(remind_time, INTERVAL 1 DAY),
+            status='Pending'
+        WHERE id=$id AND user_id=$current_user_id
+    ");
+    $_SESSION["flash_success"] = "😴 Snoozed 1 day.";
+    header("Location: reminder.php"); exit;
+}
+
+require PATH_LIB . "PAGE-top.php";
+?>
+
+<style>
+.flash-container {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 5000;
+    min-width: 280px;
+    max-width: 340px;
+}
+.flash-message {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    animation: flash-slide-in 0.25s ease-out;
+}
+@keyframes flash-slide-in {
+    from { transform: translateX(12px); opacity: 0.6; }
+    to { transform: translateX(0); opacity: 1; }
+}
+</style>
+
+<?php if (!empty($_SESSION["flash_success"])): ?>
+<div class="flash-container">
+    <div class="alert alert-success m-0 flash-message" role="alert">
+        <?= $_SESSION["flash_success"]; unset($_SESSION["flash_success"]); ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- ============================
+      TABS
+============================ -->
+<div class="container-fluid mb-3">
+<ul class="nav nav-tabs" id="reminderTabs">
+    <li class="nav-item"><a class="nav-link active" data-target="#tab-calendar">📅 Calendar View</a></li>
+    <li class="nav-item"><a class="nav-link" data-target="#tab-list">📋 Remainder List</a></li>
+</ul>
+</div>
+
+<div class="tab-content">
+
+<!-- ============================
+      CALENDAR TAB
+============================ -->
+<div class="tab-pane fade show active" id="tab-calendar">
+<section class="content">
+<div class="container-fluid"><div class="row">
+
+<div class="col-md-3">
+    <div class="sticky-top mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white"><h5 class="mb-0">Filter by Category</h5></div>
+            <div class="card-body">
+                <button class="btn btn-primary btn-block mb-2 category-filter" data-cat="all">Show All</button>
+                <button class="btn btn-info btn-block mb-2 category-filter" data-cat="Buy/Sell Plan">Buy/Sell Plan</button>
+                <button class="btn btn-success btn-block mb-2 category-filter" data-cat="Market Watch">Market Watch</button>
+                <button class="btn btn-warning btn-block mb-2 category-filter" data-cat="Portfolio Review">Portfolio Review</button>
+                <button class="btn btn-secondary btn-block category-filter" data-cat="General">General</button>
             </div>
-          </div>
-          <!-- /.col -->
-          <div class="col-md-9">
-            <div class="card card-primary">
-              <div class="card-body p-0">
-                <!-- THE CALENDAR -->
-                <div id="calendar" class="fc fc-media-screen fc-direction-ltr fc-theme-bootstrap"><div class="fc-header-toolbar fc-toolbar fc-toolbar-ltr"><div class="fc-toolbar-chunk"><div class="btn-group"><button type="button" title="Previous month" aria-pressed="false" class="fc-prev-button btn btn-primary"><span class="fa fa-chevron-left"></span></button><button type="button" title="Next month" aria-pressed="false" class="fc-next-button btn btn-primary"><span class="fa fa-chevron-right"></span></button></div><button type="button" title="This month" disabled="" aria-pressed="false" class="fc-today-button btn btn-primary">today</button></div><div class="fc-toolbar-chunk"><h2 class="fc-toolbar-title" id="fc-dom-1">November 2025</h2></div><div class="fc-toolbar-chunk"><div class="btn-group"><button type="button" title="month view" aria-pressed="true" class="fc-dayGridMonth-button btn btn-primary active">month</button><button type="button" title="week view" aria-pressed="false" class="fc-timeGridWeek-button btn btn-primary">week</button><button type="button" title="day view" aria-pressed="false" class="fc-timeGridDay-button btn btn-primary">day</button></div></div></div><div aria-labelledby="fc-dom-1" class="fc-view-harness fc-view-harness-active" style="height: 649.63px;"><div class="fc-daygrid fc-dayGridMonth-view fc-view"><table role="grid" class="fc-scrollgrid table-bordered fc-scrollgrid-liquid"><thead role="rowgroup"><tr role="presentation" class="fc-scrollgrid-section fc-scrollgrid-section-header "><th role="presentation"><div class="fc-scroller-harness"><div class="fc-scroller" style="overflow: hidden;"><table role="presentation" class="fc-col-header " style="width: 874px;"><colgroup></colgroup><thead role="presentation"><tr role="row"><th role="columnheader" class="fc-col-header-cell fc-day fc-day-sun"><div class="fc-scrollgrid-sync-inner"><a aria-label="Sunday" class="fc-col-header-cell-cushion ">Sun</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-mon"><div class="fc-scrollgrid-sync-inner"><a aria-label="Monday" class="fc-col-header-cell-cushion ">Mon</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-tue"><div class="fc-scrollgrid-sync-inner"><a aria-label="Tuesday" class="fc-col-header-cell-cushion ">Tue</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-wed"><div class="fc-scrollgrid-sync-inner"><a aria-label="Wednesday" class="fc-col-header-cell-cushion ">Wed</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-thu"><div class="fc-scrollgrid-sync-inner"><a aria-label="Thursday" class="fc-col-header-cell-cushion ">Thu</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-fri"><div class="fc-scrollgrid-sync-inner"><a aria-label="Friday" class="fc-col-header-cell-cushion ">Fri</a></div></th><th role="columnheader" class="fc-col-header-cell fc-day fc-day-sat"><div class="fc-scrollgrid-sync-inner"><a aria-label="Saturday" class="fc-col-header-cell-cushion ">Sat</a></div></th></tr></thead></table></div></div></th></tr></thead><tbody role="rowgroup"><tr role="presentation" class="fc-scrollgrid-section fc-scrollgrid-section-body  fc-scrollgrid-section-liquid"><td role="presentation"><div class="fc-scroller-harness fc-scroller-harness-liquid"><div class="fc-scroller fc-scroller-liquid-absolute" style="overflow: hidden auto;"><div class="fc-daygrid-body fc-daygrid-body-unbalanced " style="width: 874px;"><table role="presentation" class="fc-scrollgrid-sync-table" style="width: 874px; height: 617px;"><colgroup></colgroup><tbody role="presentation"><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-past fc-day-other" data-date="2025-10-26" aria-labelledby="fc-dom-2"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-2" class="fc-daygrid-day-number" aria-label="October 26, 2025">26</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-past fc-day-other" data-date="2025-10-27" aria-labelledby="fc-dom-4"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-4" class="fc-daygrid-day-number" aria-label="October 27, 2025">27</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-past fc-day-other" data-date="2025-10-28" aria-labelledby="fc-dom-6"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-6" class="fc-daygrid-day-number" aria-label="October 28, 2025">28</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-past fc-day-other" data-date="2025-10-29" aria-labelledby="fc-dom-8"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-8" class="fc-daygrid-day-number" aria-label="October 29, 2025">29</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-past fc-day-other" data-date="2025-10-30" aria-labelledby="fc-dom-10"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-10" class="fc-daygrid-day-number" aria-label="October 30, 2025">30</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-past fc-day-other" data-date="2025-10-31" aria-labelledby="fc-dom-12"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-12" class="fc-daygrid-day-number" aria-label="October 31, 2025">31</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-past" data-date="2025-11-01" aria-labelledby="fc-dom-14"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-14" class="fc-daygrid-day-number" aria-label="November 1, 2025">1</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-event-harness" style="margin-top: 0px;"><a class="fc-daygrid-event fc-daygrid-block-event fc-h-event fc-event fc-event-draggable fc-event-resizable fc-event-start fc-event-end fc-event-past" style="border-color: rgb(245, 105, 84); background-color: rgb(245, 105, 84);"><div class="fc-event-main"><div class="fc-event-main-frame"><div class="fc-event-title-container"><div class="fc-event-title fc-sticky">All Day Event</div></div></div></div><div class="fc-event-resizer fc-event-resizer-end"></div></a></div><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-past" data-date="2025-11-02" aria-labelledby="fc-dom-16"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-16" class="fc-daygrid-day-number" aria-label="November 2, 2025">2</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-past" data-date="2025-11-03" aria-labelledby="fc-dom-18"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-18" class="fc-daygrid-day-number" aria-label="November 3, 2025">3</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-past" data-date="2025-11-04" aria-labelledby="fc-dom-20"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-20" class="fc-daygrid-day-number" aria-label="November 4, 2025">4</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-past" data-date="2025-11-05" aria-labelledby="fc-dom-22"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-22" class="fc-daygrid-day-number" aria-label="November 5, 2025">5</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-past" data-date="2025-11-06" aria-labelledby="fc-dom-24"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-24" class="fc-daygrid-day-number" aria-label="November 6, 2025">6</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-past" data-date="2025-11-07" aria-labelledby="fc-dom-26"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-26" class="fc-daygrid-day-number" aria-label="November 7, 2025">7</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-past" data-date="2025-11-08" aria-labelledby="fc-dom-28"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-28" class="fc-daygrid-day-number" aria-label="November 8, 2025">8</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-past" data-date="2025-11-09" aria-labelledby="fc-dom-30"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-30" class="fc-daygrid-day-number" aria-label="November 9, 2025">9</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-past" data-date="2025-11-10" aria-labelledby="fc-dom-32"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-32" class="fc-daygrid-day-number" aria-label="November 10, 2025">10</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-past" data-date="2025-11-11" aria-labelledby="fc-dom-34"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-34" class="fc-daygrid-day-number" aria-label="November 11, 2025">11</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-past" data-date="2025-11-12" aria-labelledby="fc-dom-36"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-36" class="fc-daygrid-day-number" aria-label="November 12, 2025">12</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-past" data-date="2025-11-13" aria-labelledby="fc-dom-38"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-38" class="fc-daygrid-day-number" aria-label="November 13, 2025">13</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-event-harness fc-daygrid-event-harness-abs" style="top: 0px; left: 0px; right: -250.242px;"><a class="fc-daygrid-event fc-daygrid-block-event fc-h-event fc-event fc-event-draggable fc-event-start fc-event-end fc-event-past" style="border-color: rgb(243, 156, 18); background-color: rgb(243, 156, 18);"><div class="fc-event-main"><div class="fc-event-main-frame"><div class="fc-event-time">12a</div><div class="fc-event-title-container"><div class="fc-event-title fc-sticky">Long Event</div></div></div></div></a></div><div class="fc-daygrid-day-bottom" style="margin-top: 25px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-past" data-date="2025-11-14" aria-labelledby="fc-dom-40"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-40" class="fc-daygrid-day-number" aria-label="November 14, 2025">14</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 25px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-past" data-date="2025-11-15" aria-labelledby="fc-dom-42"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-42" class="fc-daygrid-day-number" aria-label="November 15, 2025">15</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 25px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-past" data-date="2025-11-16" aria-labelledby="fc-dom-44"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-44" class="fc-daygrid-day-number" aria-label="November 16, 2025">16</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-past" data-date="2025-11-17" aria-labelledby="fc-dom-46"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-46" class="fc-daygrid-day-number" aria-label="November 17, 2025">17</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-today " data-date="2025-11-18" aria-labelledby="fc-dom-48"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-48" class="fc-daygrid-day-number" aria-label="November 18, 2025">18</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-event-harness" style="margin-top: 0px;"><a class="fc-daygrid-event fc-daygrid-dot-event fc-event fc-event-draggable fc-event-resizable fc-event-start fc-event-end fc-event-today"><div class="fc-daygrid-event-dot" style="border-color: rgb(0, 115, 183);"></div><div class="fc-event-time">10:30a</div><div class="fc-event-title">Meeting</div></a></div><div class="fc-daygrid-event-harness" style="margin-top: 0px;"><a class="fc-daygrid-event fc-daygrid-dot-event fc-event fc-event-draggable fc-event-resizable fc-event-start fc-event-end fc-event-today"><div class="fc-daygrid-event-dot" style="border-color: rgb(0, 192, 239);"></div><div class="fc-event-time">12p</div><div class="fc-event-title">Lunch</div></a></div><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-future" data-date="2025-11-19" aria-labelledby="fc-dom-50"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-50" class="fc-daygrid-day-number" aria-label="November 19, 2025">19</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-event-harness" style="margin-top: 0px;"><a class="fc-daygrid-event fc-daygrid-dot-event fc-event fc-event-draggable fc-event-resizable fc-event-start fc-event-end fc-event-future"><div class="fc-daygrid-event-dot" style="border-color: rgb(0, 166, 90);"></div><div class="fc-event-time">7p</div><div class="fc-event-title">Birthday Party</div></a></div><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-future" data-date="2025-11-20" aria-labelledby="fc-dom-52"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-52" class="fc-daygrid-day-number" aria-label="November 20, 2025">20</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-future" data-date="2025-11-21" aria-labelledby="fc-dom-54"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-54" class="fc-daygrid-day-number" aria-label="November 21, 2025">21</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-future" data-date="2025-11-22" aria-labelledby="fc-dom-56"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-56" class="fc-daygrid-day-number" aria-label="November 22, 2025">22</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-future" data-date="2025-11-23" aria-labelledby="fc-dom-58"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-58" class="fc-daygrid-day-number" aria-label="November 23, 2025">23</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-future" data-date="2025-11-24" aria-labelledby="fc-dom-60"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-60" class="fc-daygrid-day-number" aria-label="November 24, 2025">24</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-future" data-date="2025-11-25" aria-labelledby="fc-dom-62"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-62" class="fc-daygrid-day-number" aria-label="November 25, 2025">25</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-future" data-date="2025-11-26" aria-labelledby="fc-dom-64"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-64" class="fc-daygrid-day-number" aria-label="November 26, 2025">26</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-future" data-date="2025-11-27" aria-labelledby="fc-dom-66"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-66" class="fc-daygrid-day-number" aria-label="November 27, 2025">27</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-future" data-date="2025-11-28" aria-labelledby="fc-dom-68"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-68" class="fc-daygrid-day-number" aria-label="November 28, 2025">28</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-event-harness" style="margin-top: 0px;"><a class="fc-daygrid-event fc-daygrid-dot-event fc-event fc-event-draggable fc-event-resizable fc-event-start fc-event-end fc-event-future" href="https://www.google.com/"><div class="fc-daygrid-event-dot" style="border-color: rgb(60, 141, 188);"></div><div class="fc-event-time">12a</div><div class="fc-event-title">Click for Google</div></a></div><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-future" data-date="2025-11-29" aria-labelledby="fc-dom-70"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-70" class="fc-daygrid-day-number" aria-label="November 29, 2025">29</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr><tr role="row"><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sun fc-day-future" data-date="2025-11-30" aria-labelledby="fc-dom-72"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-72" class="fc-daygrid-day-number" aria-label="November 30, 2025">30</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-mon fc-day-future fc-day-other" data-date="2025-12-01" aria-labelledby="fc-dom-74"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-74" class="fc-daygrid-day-number" aria-label="December 1, 2025">1</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-tue fc-day-future fc-day-other" data-date="2025-12-02" aria-labelledby="fc-dom-76"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-76" class="fc-daygrid-day-number" aria-label="December 2, 2025">2</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-wed fc-day-future fc-day-other" data-date="2025-12-03" aria-labelledby="fc-dom-78"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-78" class="fc-daygrid-day-number" aria-label="December 3, 2025">3</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-thu fc-day-future fc-day-other" data-date="2025-12-04" aria-labelledby="fc-dom-80"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-80" class="fc-daygrid-day-number" aria-label="December 4, 2025">4</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-fri fc-day-future fc-day-other" data-date="2025-12-05" aria-labelledby="fc-dom-82"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-82" class="fc-daygrid-day-number" aria-label="December 5, 2025">5</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td><td role="gridcell" class="fc-daygrid-day fc-day fc-day-sat fc-day-future fc-day-other" data-date="2025-12-06" aria-labelledby="fc-dom-84"><div class="fc-daygrid-day-frame fc-scrollgrid-sync-inner"><div class="fc-daygrid-day-top"><a id="fc-dom-84" class="fc-daygrid-day-number" aria-label="December 6, 2025">6</a></div><div class="fc-daygrid-day-events"><div class="fc-daygrid-day-bottom" style="margin-top: 0px;"></div></div><div class="fc-daygrid-day-bg"></div></div></td></tr></tbody></table></div></div></div></td></tr></tbody></table></div></div></div>
-              </div>
-              <!-- /.card-body -->
-            </div>
-            <!-- /.card -->
-          </div>
-          <!-- /.col -->
         </div>
-        <!-- /.row -->
-      </div><!-- /.container-fluid -->
-    </section>
-    <!-- /.content -->
-  </div>
+    </div>
+</div>
+
+<div class="col-md-9">
+    <div class="card card-primary shadow-sm">
+        <div class="card-body p-0">
+            <div id="calendar" style="padding:10px;"></div>
+        </div>
+    </div>
+</div>
+
+</div></div>
+</section>
+</div>
+
+<!-- ============================
+      LIST TAB
+============================ -->
+<div class="tab-pane fade" id="tab-list">
+<section class="content"><div class="container-fluid">
+<div class="card shadow-sm">
+<div class="card-header bg-secondary text-white"><h4>Your Reminders</h4></div>
+<div class="card-body p-0">
+
+<?php if (empty($reminders)): ?>
+<div class="p-4 text-center text-muted">No reminders yet.</div>
+<?php else: ?>
+<table class="table table-striped table-hover mb-0">
+<thead class="thead-dark">
+<tr>
+    <th>Title</th>
+    <th>Category</th>
+    <th>Description</th>
+    <th>Date/Time</th>
+    <th>Status</th>
+    <th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<?php foreach ($reminders as $r): ?>
+<tr>
+<td><?= htmlspecialchars($r['title']) ?></td>
+<td><?= htmlspecialchars($r['category']) ?></td>
+<td style="max-width:260px; white-space:normal;"><?= nl2br(htmlspecialchars($r['description'])) ?></td>
+<td><?= date("M j, Y g:i A", strtotime($r['remind_time'])) ?></td>
+<td>
+<?php $badge = ($r["status"]=="Completed"?"success":($r["status"]=="Missed"?"danger":"warning")); ?>
+<span class="badge badge-<?= $badge ?>"><?= $r["status"] ?></span>
+</td>
+<td>
+<a href="?done=<?= $r['id'] ?>" class="btn btn-sm btn-success">Done</a>
+<a href="?delete=<?= $r['id'] ?>" class="btn btn-sm btn-danger">Delete</a>
+</td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+</table>
+<?php endif; ?>
+
+</div></div></div></section>
+</div>
+</div>
+
+<!-- Floating Add Button -->
+<button id="addReminderBtn" class="btn btn-primary rounded-circle"
+style="position:fixed; bottom:30px; right:30px; z-index:2000; width:60px; height:60px; font-size:30px;">+</button>
+
+<!-- ADD MODAL -->
+<div class="modal fade" id="addReminderModal">
+<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+<div class="modal-header bg-primary text-white">
+<h5 class="modal-title">Add Reminder</h5><button class="close text-white" data-dismiss="modal">&times;</button></div>
+<form method="POST"><input type="hidden" name="add_reminder" value="1">
+<div class="modal-body">
+<label>Title</label>
+<input type="text" name="title" class="form-control" required>
+<label class="mt-3">Date & Time</label>
+<input type="datetime-local" name="remind_time" id="addDateTime" class="form-control" required>
+<label class="mt-3">Category</label>
+<select name="category" class="form-control">
+<option>Buy/Sell Plan</option><option>Market Watch</option><option>Portfolio Review</option><option>General</option>
+</select>
+<label class="mt-3">Description</label>
+<textarea name="description" class="form-control"></textarea>
+<label class="mt-3">Recurrence</label>
+<select name="recurrence" class="form-control">
+<option value="none">None</option><option value="daily">Daily</option>
+<option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+</select>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+<button class="btn btn-success">Add</button></div></form>
+</div></div></div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editReminderModal">
+<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+<div class="modal-header bg-info text-white">
+<h5 class="modal-title">Edit Reminder</h5><button class="close text-white" data-dismiss="modal">&times;</button></div>
+
+<form method="POST">
+<input type="hidden" name="edit_reminder" value="1">
+<input type="hidden" name="id" id="editId">
+
+<div class="modal-body">
+<label>Title</label>
+<input type="text" name="title" id="editTitle" class="form-control" required>
+
+<label class="mt-3">Date & Time</label>
+<input type="datetime-local" name="remind_time" id="editDateTime" class="form-control" required>
+
+<label class="mt-3">Category</label>
+<select name="category" id="editCategory" class="form-control">
+<option>Buy/Sell Plan</option><option>Market Watch</option>
+<option>Portfolio Review</option><option>General</option>
+</select>
+
+<label class="mt-3">Description</label>
+<textarea name="description" id="editDescription" class="form-control"></textarea>
+
+<label class="mt-3">Recurrence</label>
+<select name="recurrence" id="editRecurrence" class="form-control">
+<option value="none">None</option><option value="daily">Daily</option>
+<option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+</select>
+
+<div class="mt-3">
+    <a id="editDoneBtn" class="btn btn-success btn-block">Mark Done</a>
+    <a id="editSnoozeBtn" class="btn btn-secondary btn-block">Snooze +1 Day</a>
+    <a id="editDeleteBtn" class="btn btn-danger btn-block">Delete</a>
+</div>
+</div>
+
+<div class="modal-footer">
+<button class="btn btn-secondary" data-dismiss="modal">Close</button>
+<button class="btn btn-info">Save</button>
+</div>
+
+</form>
+</div></div></div>
+
+<!-- ============================
+      JAVASCRIPT
+============================ -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    function refreshCalendarSize(){
+        if (typeof calendar !== "undefined" && calendar) {
+            calendar.updateSize();
+            setTimeout(()=>calendar.updateSize(), 280);
+        }
+    }
+
+    /* FLASH MESSAGE AUTO-HIDE */
+    const flash = document.querySelector(".flash-message");
+    if (flash) {
+        $(flash).hide().fadeIn(200);
+        setTimeout(() => {
+            $(flash).fadeTo(350, 0).slideUp(300, function() { $(this).remove(); });
+        }, 2200);
+    }
+
+    /* TAB SWITCH */
+    document.querySelectorAll("#reminderTabs .nav-link").forEach(tab=>{
+        tab.addEventListener("click",function(){
+            document.querySelectorAll("#reminderTabs .nav-link").forEach(t=>t.classList.remove("active"));
+            this.classList.add("active");
+            let target=this.getAttribute("data-target");
+            document.querySelectorAll(".tab-pane").forEach(p=>p.classList.remove("show","active"));
+            document.querySelector(target).classList.add("show","active");
+            if (target === "#tab-calendar") {
+                setTimeout(refreshCalendarSize, 50);
+            }
+        });
+    });
+
+    /* EVENTS */
+    let eventsFromPHP = [
+        <?php foreach ($reminders as $r): ?>
+        {
+            id:"<?= $r['id'] ?>",
+            title:"<?= addslashes($r['title']) ?>",
+            start:"<?= date('Y-m-d\TH:i:s', strtotime($r['remind_time'])) ?>",
+            extendedProps:{
+                category:"<?= $r['category'] ?>",
+                status:"<?= $r['status'] ?>",
+                description:"<?= addslashes($r['description']) ?>",
+                recurrence:"<?= $r['recurring'] ?>"
+            },
+            backgroundColor:"<?= $r['status']=='Completed'?'#28a745':($r['status']=='Missed'?'#dc3545':($r['category']=='Buy/Sell Plan'?'#007bff':($r['category']=='Market Watch'?'#28a745':($r['category']=='Portfolio Review'?'#fd7e14':'#6c757d')))) ?>"
+        },
+        <?php endforeach; ?>
+    ];
+
+    /* FULLCALENDAR */
+    var calendar=new FullCalendar.Calendar(document.getElementById('calendar'),{
+        height:750,
+        initialView:'dayGridMonth',
+        editable:true,
+        eventStartEditable:true,
+        eventDurationEditable:false,
+        headerToolbar:{ left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay' },
+        buttonText:{
+            today:'Today',
+            month:'Month',
+            week:'Week',
+            day:'Day'
+        },
+        events:eventsFromPHP,
+
+        dateClick:function(info){
+            document.getElementById("addDateTime").value=moment(info.date).format("YYYY-MM-DDTHH:00");
+            $("#addReminderModal").modal("show");
+        },
+
+        eventClick:function(info){
+            let e=info.event;
+            $("#editId").val(e.id);
+            $("#editTitle").val(e.title);
+            $("#editDateTime").val(moment(e.start).format("YYYY-MM-DDTHH:mm"));
+            $("#editCategory").val(e.extendedProps.category);
+            $("#editDescription").val(e.extendedProps.description);
+            $("#editRecurrence").val(e.extendedProps.recurrence??"none");
+            $("#editDoneBtn").attr("href","reminder.php?done="+e.id);
+            $("#editSnoozeBtn").attr("href","reminder.php?snooze="+e.id);
+            $("#editDeleteBtn").attr("href","reminder.php?delete="+e.id);
+            $("#editReminderModal").modal("show");
+        },
+
+        eventDrop:function(info){
+            $.post("reminder.php",{ drag_update:1, id:info.event.id,
+                remind_time:moment(info.event.start).format("YYYY-MM-DD HH:mm:ss")
+            });
+        }
+    });
+    calendar.render();
+    window.addEventListener("resize", refreshCalendarSize);
+    $(document).on("shown.lte.pushmenu collapsed.lte.pushmenu", function(){
+        setTimeout(refreshCalendarSize, 220);
+    });
+    new MutationObserver(function(muts){
+        if (muts.some(m=>m.attributeName==="class")) {
+            setTimeout(refreshCalendarSize, 220);
+        }
+    }).observe(document.body,{attributes:true,attributeFilter:["class"]});
+
+    /* ADD BTN */
+    $("#addReminderBtn").click(()=>$("#addReminderModal").modal("show"));
+
+    /* FILTERS */
+    $(".category-filter").on("click",function(){
+        let cat=$(this).data("cat");
+        calendar.getEvents().forEach(ev=>{
+            ev.setProp("display",(cat==="all"||ev.extendedProps.category===cat)?"auto":"none");
+        });
+    });
+
+    /* DARK MODE */
+    function applyTheme(){
+        let dark=document.body.classList.contains("dark-mode");
+        document.querySelectorAll(".fc").forEach(el=>{
+            el.style.background=dark?"#1e1e1e":"#ffffff";
+            el.style.color=dark?"#f8f9fa":"#212529";
+        });
+    }
+    applyTheme();
+    new MutationObserver(applyTheme).observe(document.body,{attributes:true,attributeFilter:["class"]});
+
+    /* UPCOMING POPUPS */
+    function checkUpcoming(){
+        let now=moment();
+        let soon=moment().add(10,"minutes");
+        calendar.getEvents().forEach(ev=>{
+            if(moment(ev.start).isBetween(now,soon)&&ev.extendedProps.status==="Pending"){
+                showPopup(ev);
+            }
+        });
+    }
+    function showPopup(ev){
+        let box=`
+            <div class="alert alert-warning" style="position:fixed; bottom:20px; right:20px;
+                 z-index:5000; min-width:280px;">
+                <strong>⏰ Upcoming Reminder:</strong><br>${ev.title}<br>
+                <small>${moment(ev.start).format("MMM D, h:mm A")}</small>
+            </div>`;
+        $("body").append(box);
+        setTimeout(()=>$(".alert").fadeOut(400,function(){$(this).remove()}),6000);
+    }
+    setInterval(checkUpcoming,30000);
+});
+</script>
 
 <?php require PATH_LIB . "PAGE-bottom.php"; ?>
+
+
