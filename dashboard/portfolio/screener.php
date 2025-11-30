@@ -1221,3 +1221,76 @@ $userId = isset($active_user["user_id"]) ? (int) $active_user["user_id"] : 0;
 </script>
 
 <?php require "../lib/PAGE-bottom.php"; ?>
+<?php
+/*
+Base Score
+Every stock starts with 50 points (out of 100)
+
+Then points are added/subtracted based on:
+1. Daily Price Change (changePct)
+Add/subtract up to 12 points
+
+Formula: daily change % × 3
+
+Example: +4% daily change = +12 points, -3% daily change = -9 points
+
+2. Weekly Momentum (weekChange)
+Add/subtract up to 20 points
+
+Formula: weekly change % × 2
+
+Example: +8% weekly = +16 points, -5% weekly = -10 points
+
+3. P/E Ratio (pe)
+Good P/E (10-30): +8 points
+
+Bad P/E (negative or >60): -6 points
+
+Other P/E values: no change
+
+4. Dividend Yield (dividendYield)
+High yield (≥2%): +6 points
+
+No dividend: -2 points
+
+Low dividend (0-2%): no change
+
+5. Risk Level
+Low risk: +6 points
+
+High risk: -6 points
+
+Medium risk: no change
+
+6. Company Size (marketCapBucket)
+Mega/Large cap: +4 points
+
+Micro cap: -4 points
+
+Mid/Small cap: no change
+
+Final Adjustments
+Minimum score: 20 (can't go lower)
+
+Maximum score: 95 (can't go higher)
+
+Rounded to whole number
+
+Example Calculation:
+A large cap, low-risk stock with:
+
++2% daily change = +6 points
+
++5% weekly change = +10 points
+
+P/E of 15 = +8 points
+
+2.5% dividend = +6 points
+
+Low risk = +6 points
+
+Large cap = +4 points
+
+Total = 50 + 6 + 10 + 8 + 6 + 6 + 4 = 90 points
+*/
+?>

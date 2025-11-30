@@ -103,7 +103,6 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 }
 ?>
 
-dscdcvsdvsdvsdvsdvsdvsd
 <!-- FullCalendar CSS -->
 <link rel="stylesheet" href="<?= URL_HOST ?>plugins/fullcalendar/main.css">
 
