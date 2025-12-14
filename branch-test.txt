@@ -1,2 +1,0 @@
-Testing branch protection rules
-new test
