@@ -1,4 +1,4 @@
-name: Auto Deploy to VPS (Preserve Config Files)
+name: Auto Deploy to paper-trade.org
 
 on:
   push:
@@ -6,30 +6,25 @@ on:
       - main
 
 jobs:
-  protect-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Deploy to VPS
+      - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: 74.208.158.229
-          username: root
+          username: nirajan
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /var/www/html
+            cd /home/nirajan/web/paper-trade.org/public_html
 
             echo "📂 Backup protected files..."
             cp dashboard/lib/Core.php /tmp/Core.php.bak || true
             cp dashboard/lib/LIB-database.php /tmp/LIB-database.php.bak || true
 
-            echo "🚀 Deploying latest code..."
+            echo "🚀 Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
@@ -38,4 +33,4 @@ jobs:
             cp /tmp/Core.php.bak dashboard/lib/Core.php || true
             cp /tmp/LIB-database.php.bak dashboard/lib/LIB-database.php || true
 
-            echo "✅ Deployment done (Core.php & LIB-database.php preserved)"
+            echo "✅ Deployment complete"
