@@ -64,3 +64,6 @@ PaperTrade is a PHP/MySQL web app for paper trading. It ships with a marketing l
 - Fork and branch from `main`.
 - Keep PHP code PSR-12 compliant; prefer prepared statements and server-side validation.
 - Add context to UI changes with screenshots/gifs when opening PRs.
+
+
+- test
