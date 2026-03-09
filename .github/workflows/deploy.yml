@@ -22,8 +22,8 @@ jobs:
 
             cd /home/nirajan/web/paper-trade.org/public_html
 
-            git pull origin main
+            git config --global --add safe.directory /home/nirajan/web/paper-trade.org/public_html
 
-            systemctl restart papertrade || true
+            git pull origin main
 
             echo "Deployment finished"
