@@ -6,8 +6,8 @@ error_reporting(E_ALL);
 echo "PHP WORKING<br>";
 
 $host = "localhost";
-$user = "nirajan";
-$password = "papertrade_trade";
+$user = "papertrade_trade";
+$password = "7Dz)kI9-MCroe/=u";
 $db = "papertrade_trade";
 
 $conn = mysqli_connect($host, $user, $password, $db);
