@@ -701,7 +701,7 @@ async function loadTicker() {
         ];
 
         // Backend API
-        const apiUrl = `http://74.208.158.229/stock-api/landing?symbols=${symbols.join(',')}`;
+        const apiUrl = `https://api.paper-trade.org/landing?symbols=${symbols.join(',')}`;
         
         const res = await fetch(apiUrl, { cache: "no-store" });
         const data = await res.json();

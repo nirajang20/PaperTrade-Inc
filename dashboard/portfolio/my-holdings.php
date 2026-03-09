@@ -57,7 +57,7 @@ if (!empty($holdings)) {
     $querySymbols = implode(",", array_map(function ($symbol) {
       return urlencode($symbol);
     }, $chunk));
-    $url = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $querySymbols;
+    $url = "https://api.paper-trade.org/buy-sell-info?symbols=" . $querySymbols;
     $response = @file_get_contents($url);
     if ($response !== false) {
       $decoded = json_decode($response, true);

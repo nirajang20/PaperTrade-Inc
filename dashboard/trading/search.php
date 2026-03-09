@@ -356,7 +356,7 @@ $curatedCollections = [
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const apiBase = "http://74.208.158.229/stock-api";
+  const apiBase = "https://api.paper-trade.org";
   const DEFAULT_SYMBOL = <?=json_encode($defaultSymbol); ?>;
   const spotlightSymbols = <?=json_encode($spotlightSymbols, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
 

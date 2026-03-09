@@ -6,7 +6,7 @@ PaperTrade is a PHP/MySQL web app for paper trading. It ships with a marketing l
 - Landing page with animated ticker, hero canvas chart, feature highlights, and email capture CTA.
 - Authenticated dashboard built on AdminLTE showing portfolio value, cash, unrealized P&L, buying power, allocation pie, performance timeline, holdings table, watchlist, notifications, and recent trades.
 - Buy/sell, watchlist, and performance views under `dashboard/trading` and `dashboard/portfolio`, with server-side MySQL storage for users, holdings, watchlists, transactions, and notifications.
-- Live-ish data via `http://74.208.158.229/stock-api/*` endpoints for quotes, ticker, and dashboard polling; front end uses Chart.js, jQuery, SweetAlert, and Toastr.
+- Live-ish data via `https://api.paper-trade.org/*` endpoints for quotes, ticker, and dashboard polling; front end uses Chart.js, jQuery, SweetAlert, and Toastr.
 - PHPMailer wiring (see `mail.php`) for SMTP email examples.
 
 ### Requirements
@@ -42,7 +42,7 @@ PaperTrade is a PHP/MySQL web app for paper trading. It ships with a marketing l
 6) Visit `http://localhost/trade/` for the landing page and `http://localhost/trade/dashboard/login.php` to sign in.
 
 ### Configuration notes
-- Market data: endpoints are hard-coded to `http://74.208.158.229/stock-api/` in `js/dashboard-stocks.js`, `dashboard/ajax-portfolio-worth.php`, and dashboard PHP pages. Swap these URLs if you host your own feed.
+- Market data: endpoints are hard-coded to `https://api.paper-trade.org/` in `js/dashboard-stocks.js`, `dashboard/ajax-portfolio-worth.php`, and dashboard PHP pages. Swap these URLs if you host your own feed.
 - Email: `mail.php` is an example PHPMailer script; replace the SMTP credentials with environment-safe values before using it.
 - Assets: AdminLTE, Font Awesome, FullCalendar, Chart.js, jQuery, SweetAlert2, and Toastr are loaded via `dashboard/lib/PAGE-top.php`. Landing page styles/scripts live under `css/` and `js/`.
 

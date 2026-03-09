@@ -378,7 +378,7 @@ $userId = isset($active_user["user_id"]) ? (int) $active_user["user_id"] : 0;
     json_encode(
       [
         "universe" => $curatedUniverse,
-        "apiBase" => "http://74.208.158.229/stock-api",
+        "apiBase" => "https://api.paper-trade.org",
         "watchlistEndpoint" => "screener-actions.php"
       ],
       JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT

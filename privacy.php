@@ -9,13 +9,13 @@
 <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href="http://74.208.158.229/" aria-label="PaperTrade home">
+        <a class="brand" href="http://paper-trade.org/" aria-label="PaperTrade home">
           <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
         <nav id="primary-nav" class="nav-links">
-          <a href="http://74.208.158.229/#features">Features</a>
-          <a href="http://74.208.158.229/#how">How it Works</a>
-          <a href="http://74.208.158.229/#learn">Learn</a>
+          <a href="http://paper-trade.org/#features">Features</a>
+          <a href="http://paper-trade.org/#how">How it Works</a>
+          <a href="http://paper-trade.org/#learn">Learn</a>
         </nav>
       </div>
     </header>

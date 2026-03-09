@@ -247,7 +247,7 @@ if (!empty($watchlist)) {
   $chunks = array_chunk($symbols, 10);
   foreach ($chunks as $chunk) {
     $query = implode(",", array_map("urlencode", $chunk));
-    $url = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $query;
+    $url = "https://api.paper-trade.org/buy-sell-info?symbols=" . $query;
     $response = @file_get_contents($url);
     if ($response !== false) {
       $decoded = json_decode($response, true);

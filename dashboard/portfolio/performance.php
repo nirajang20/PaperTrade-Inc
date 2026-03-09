@@ -61,7 +61,7 @@ if (!empty($holdings)) {
   $chunks = array_chunk($symbols, 10);
   foreach ($chunks as $chunk) {
     $querySymbols = implode(",", array_map("urlencode", $chunk));
-    $url = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $querySymbols;
+    $url = "https://api.paper-trade.org/buy-sell-info?symbols=" . $querySymbols;
     $response = @file_get_contents($url);
     if ($response !== false) {
       $decoded = json_decode($response, true);

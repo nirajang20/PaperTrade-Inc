@@ -112,7 +112,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["export_submit"])) {
     $activityNotes = 'Export failed: invalid interval parameter.';
   } else {
     $apiUrl = sprintf(
-      "http://74.208.158.229/stock-api/chart-history?symbol=%s&period=%s&interval=%s",
+      "https://api.paper-trade.org/chart-history?symbol=%s&period=%s&interval=%s",
       urlencode($symbolInput),
       urlencode($period),
       urlencode($interval)

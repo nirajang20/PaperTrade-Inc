@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const apiBase = "http://74.208.158.229/stock-api";
+  const apiBase = "https://api.paper-trade.org";
   const availableList = document.getElementById("available-stocks");
 
   if (!availableList) return;

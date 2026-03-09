@@ -98,7 +98,7 @@ if (!empty($allSymbols)) {
   $snapshotMap = [];
   foreach ($chunks as $chunk) {
     $query = implode(",", array_map("urlencode", $chunk));
-    $apiUrl = "http://74.208.158.229/stock-api/buy-sell-info?symbols=" . $query;
+    $apiUrl = "https://api.paper-trade.org/buy-sell-info?symbols=" . $query;
     $response = @file_get_contents($apiUrl);
     if ($response === false) {
       continue;
