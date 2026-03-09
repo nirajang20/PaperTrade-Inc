@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchHistory = async () => {
         try {
-            const apiUrl = `http://74.208.158.229/stock-api/history?symbol=NVDA&days=30`;
+            const apiUrl = `https://api.paper-trade.org/history?symbol=NVDA&days=30`;
             const res = await fetch(apiUrl, { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();

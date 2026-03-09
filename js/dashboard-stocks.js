@@ -71,7 +71,7 @@ if (track) {
 
     const fetchQuotes = async () => {
         try {
-            const apiUrl = `http://74.208.158.229/stock-api/landing?symbols=${symbols.join(',')}`;
+            const apiUrl = `https://api.paper-trade.org/landing?symbols=${symbols.join(',')}`;
             const res = await fetch(apiUrl, { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();

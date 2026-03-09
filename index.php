@@ -11,7 +11,7 @@
   <body>
     <header class="site-header">
       <div class="container nav">
-        <a class="brand" href="http://74.208.158.229/" aria-label="PaperTrade home">
+        <a class="brand" href="http://paper-trade.org/" aria-label="PaperTrade home">
           <!-- LOGO ADDED HERE -->
           <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
         </a>
