@@ -191,7 +191,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <form method="POST" action="" onsubmit="return validateForm()" autocomplete="off" class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-slate-400 mb-2">Identifier / User Name</label>
+                            <label class="block text-sm font-medium text-slate-400 mb-2">Enter your First Name</label>
                             <input 
                                 type="text" 
                                 name="name" 
