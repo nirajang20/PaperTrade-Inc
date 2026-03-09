@@ -533,7 +533,7 @@ if (!empty($watchlistItems)) {
                       <div class="small text-muted"><?=!empty($watch["created_at"]) ? date("M d, Y", strtotime($watch["created_at"])) : ""; ?></div>
                     </div>
                     <div class="text-right">
-                      <div class="font-weight-bold"><?=($watch["price"] !== null) ? "$" . number_format($watch["price"], 2, ".", ",") : "—"; ?></div>
+                      <div class="font-weight-bold"><?=($watch["price"] !== null) ? "$" . number_format((float)$watch["price"], 2, ".", ",") : "—"; ?></div>
                       <span class="badge <?=$changeClass; ?>"><?=$changeText; ?></span>
                     </div>
                   </li>
