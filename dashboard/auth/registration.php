@@ -69,9 +69,18 @@ function registrationValues(string $defaultAvatar): array {
         return $_SESSION['pending_registration'];
     }
 
+    $prefillEmail = '';
+
+    if (isset($_GET['email'])) {
+        $candidateEmail = strtolower(trim((string)$_GET['email']));
+        if (filter_var($candidateEmail, FILTER_VALIDATE_EMAIL)) {
+            $prefillEmail = $candidateEmail;
+        }
+    }
+
     return array(
         'fullName' => '',
-        'email'    => '',
+        'email'    => $prefillEmail,
         'phone'    => '',
         'dob'      => '',
         'address'  => '',
@@ -942,6 +951,30 @@ textarea.field-control {
   .avatar-grid {
     grid-template-columns: repeat(2, minmax(90px, 1fr));
   }
+
+  .field-status {
+  margin-top: 0.45rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.field-status.valid {
+  color: #4ade80;
+}
+
+.field-status.invalid {
+  color: #f87171;
+}
+
+.field-control.is-valid {
+  border-color: rgba(74, 222, 128, 0.8);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.12);
+}
+
+.field-control.is-invalid {
+  border-color: rgba(248, 113, 113, 0.8);
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.12);
+}
 }
 </style>
 </head>
@@ -1007,71 +1040,78 @@ textarea.field-control {
         <?php endif; ?>
 
         <?php if ($currentStep === 1): ?>
-          <form method="POST" action="">
-            <div class="form-grid">
-              <div class="field">
-                <label for="fullName">Full Name *</label>
-                <input class="field-control" type="text" id="fullName" name="fullName" value="<?php echo h($values['fullName']); ?>" required>
-              </div>
+  <form method="POST" action="" id="registration-form" novalidate>
+    <div class="form-grid">
+      <div class="field">
+        <label for="fullName">Full Name *</label>
+        <input class="field-control" type="text" id="fullName" name="fullName" value="<?php echo h($values['fullName']); ?>" required>
+        <div class="field-status" id="fullNameStatus"></div>
+      </div>
 
-              <div class="field">
-                <label for="email">Email *</label>
-                <input class="field-control" type="email" id="email" name="email" value="<?php echo h($values['email']); ?>" autocomplete="email" required>
-                <p class="small-note">Use a real email address. Your OTP will be sent there.</p>
-              </div>
+      <div class="field">
+        <label for="email">Email *</label>
+        <input class="field-control" type="email" id="email" name="email" value="<?php echo h($values['email']); ?>" autocomplete="email" required>
+        <p class="small-note">Use a real email address. Your OTP will be sent there.</p>
+        <div class="field-status" id="emailStatus"></div>
+      </div>
 
-              <div class="field">
-                <label for="phone">Phone *</label>
-                <input class="field-control" type="text" id="phone" name="phone" value="<?php echo h($values['phone']); ?>" autocomplete="tel" required>
-              </div>
+      <div class="field">
+        <label for="phone">Phone *</label>
+        <input class="field-control" type="text" id="phone" name="phone" value="<?php echo h($values['phone']); ?>" autocomplete="tel" required>
+        <div class="field-status" id="phoneStatus"></div>
+      </div>
 
-              <div class="field">
-                <label for="dob">Date of Birth *</label>
-                <input class="field-control" type="date" id="dob" name="dob" value="<?php echo h($values['dob']); ?>" required>
-              </div>
+      <div class="field">
+        <label for="dob">Date of Birth *</label>
+        <input class="field-control" type="date" id="dob" name="dob" value="<?php echo h($values['dob']); ?>" required>
+        <div class="field-status" id="dobStatus"></div>
+      </div>
 
-              <div class="field">
-                <label for="password">Password *</label>
-                <input class="field-control" type="password" id="password" name="password" autocomplete="new-password" required>
-                <p class="small-note">Must be at least 8 characters and include uppercase, lowercase, number, and special character.</p>
-              </div>
+      <div class="field">
+        <label for="password">Password *</label>
+        <input class="field-control" type="password" id="password" name="password" autocomplete="new-password" required>
+        <p class="small-note">Must be at least 8 characters and include uppercase, lowercase, number, and special character.</p>
+        <div class="field-status" id="passwordStatus"></div>
+      </div>
 
-              <div class="field">
-                <label for="confirmPassword">Confirm Password *</label>
-                <input class="field-control" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
-              </div>
+      <div class="field">
+        <label for="confirmPassword">Confirm Password *</label>
+        <input class="field-control" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
+        <div class="field-status" id="confirmPasswordStatus"></div>
+      </div>
 
-              <div class="field span-2">
-                <label for="address">Address *</label>
-                <textarea class="field-control" id="address" name="address" rows="2" placeholder="Street, City, State" required><?php echo h($values['address']); ?></textarea>
-              </div>
+      <div class="field span-2">
+        <label for="address">Address *</label>
+        <textarea class="field-control" id="address" name="address" rows="2" placeholder="Street, City, State" required><?php echo h($values['address']); ?></textarea>
+        <div class="field-status" id="addressStatus"></div>
+      </div>
 
-              <div class="field span-2">
-                <label>Choose Avatar</label>
-                <div class="avatar-grid">
-                  <?php foreach ($allowedAvatars as $avatarOption): ?>
-                    <label class="avatar-choice">
-                      <input
-                        type="radio"
-                        name="avatar"
-                        value="<?php echo h($avatarOption); ?>"
-                        <?php echo (($values['avatar'] ?? $defaultAvatar) === $avatarOption) ? 'checked' : ''; ?>
-                      >
-                      <img src="../../img/avatars/<?php echo h($avatarOption); ?>" alt="Avatar option">
-                    </label>
-                  <?php endforeach; ?>
-                </div>
-                <p class="small-note">
-                  If you don’t select one, the first avatar shown will be used as your default.
-                </p>
-              </div>
-            </div>
+      <div class="field span-2">
+        <label>Choose Avatar</label>
+        <div class="avatar-grid">
+          <?php foreach ($allowedAvatars as $avatarOption): ?>
+            <label class="avatar-choice">
+              <input
+                type="radio"
+                name="avatar"
+                value="<?php echo h($avatarOption); ?>"
+                <?php echo (($values['avatar'] ?? $defaultAvatar) === $avatarOption) ? 'checked' : ''; ?>
+              >
+              <img src="../../img/avatars/<?php echo h($avatarOption); ?>" alt="Avatar option">
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <p class="small-note">
+          If you don’t select one, the first avatar shown will be used as your default.
+        </p>
+      </div>
+    </div>
 
-            <div class="btn-row">
-              <button type="reset" class="btn ghost">Reset</button>
-              <button type="submit" name="send_otp" class="btn primary">Send OTP</button>
-            </div>
-          </form>
+    <div class="btn-row">
+      <button type="reset" class="btn ghost">Reset</button>
+      <button type="submit" name="send_otp" class="btn primary">Send OTP</button>
+    </div>
+  </form>
 
         <?php elseif ($currentStep === 2): ?>
           <div class="otp-panel">
@@ -1133,5 +1173,202 @@ textarea.field-control {
 
     </section>
   </main>
+  <script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("registration-form");
+  if (!form) return;
+
+  const fullName = document.getElementById("fullName");
+  const email = document.getElementById("email");
+  const phone = document.getElementById("phone");
+  const dob = document.getElementById("dob");
+  const password = document.getElementById("password");
+  const confirmPassword = document.getElementById("confirmPassword");
+  const address = document.getElementById("address");
+
+  function setStatus(input, statusId, message, isValid) {
+    const statusEl = document.getElementById(statusId);
+    if (!statusEl) return;
+
+    statusEl.textContent = message || "";
+    statusEl.classList.remove("valid", "invalid");
+    input.classList.remove("is-valid", "is-invalid");
+
+    if (!message) return;
+
+    if (isValid) {
+      statusEl.classList.add("valid");
+      input.classList.add("is-valid");
+    } else {
+      statusEl.classList.add("invalid");
+      input.classList.add("is-invalid");
+    }
+  }
+
+  function validateFullName() {
+    const value = fullName.value.trim();
+    if (value === "") {
+      setStatus(fullName, "fullNameStatus", "", false);
+      return false;
+    }
+    if (value.length < 3) {
+      setStatus(fullName, "fullNameStatus", "Full name must be at least 3 characters.", false);
+      return false;
+    }
+    setStatus(fullName, "fullNameStatus", "Looks good.", true);
+    return true;
+  }
+
+  function validateEmail() {
+    const value = email.value.trim().toLowerCase();
+    email.value = value;
+
+    if (value === "") {
+      setStatus(email, "emailStatus", "", false);
+      return false;
+    }
+
+    if (value.includes(" ")) {
+      setStatus(email, "emailStatus", "Email address cannot contain spaces.", false);
+      return false;
+    }
+
+    if ((value.match(/@/g) || []).length !== 1) {
+      setStatus(email, "emailStatus", "Email must contain exactly one @ symbol.", false);
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      setStatus(email, "emailStatus", "Please enter a valid email address.", false);
+      return false;
+    }
+
+    setStatus(email, "emailStatus", "Valid email format.", true);
+    return true;
+  }
+
+  function validatePhone() {
+    const digits = phone.value.replace(/\D+/g, "");
+    if (phone.value.trim() === "") {
+      setStatus(phone, "phoneStatus", "", false);
+      return false;
+    }
+    if (digits.length < 7 || digits.length > 15) {
+      setStatus(phone, "phoneStatus", "Phone number must have 7 to 15 digits.", false);
+      return false;
+    }
+    setStatus(phone, "phoneStatus", "Valid phone number.", true);
+    return true;
+  }
+
+  function validateDob() {
+    const value = dob.value.trim();
+    if (value === "") {
+      setStatus(dob, "dobStatus", "", false);
+      return false;
+    }
+    setStatus(dob, "dobStatus", "Date of birth selected.", true);
+    return true;
+  }
+
+  function validatePassword() {
+    const value = password.value;
+
+    if (value === "") {
+      setStatus(password, "passwordStatus", "", false);
+      return false;
+    }
+
+    const checks = [
+      { ok: value.length >= 8, text: "8+ characters" },
+      { ok: /[A-Z]/.test(value), text: "uppercase letter" },
+      { ok: /[a-z]/.test(value), text: "lowercase letter" },
+      { ok: /[0-9]/.test(value), text: "number" },
+      { ok: /[\W_]/.test(value), text: "special character" }
+    ];
+
+    const failed = checks.filter(c => !c.ok).map(c => c.text);
+
+    if (failed.length > 0) {
+      setStatus(password, "passwordStatus", "Password still needs: " + failed.join(", ") + ".", false);
+      return false;
+    }
+
+    setStatus(password, "passwordStatus", "Strong password.", true);
+    return true;
+  }
+
+  function validateConfirmPassword() {
+    const value = confirmPassword.value;
+
+    if (value === "") {
+      setStatus(confirmPassword, "confirmPasswordStatus", "", false);
+      return false;
+    }
+
+    if (value !== password.value) {
+      setStatus(confirmPassword, "confirmPasswordStatus", "Passwords do not match.", false);
+      return false;
+    }
+
+    setStatus(confirmPassword, "confirmPasswordStatus", "Passwords match.", true);
+    return true;
+  }
+
+  function validateAddress() {
+    const value = address.value.trim();
+    if (value === "") {
+      setStatus(address, "addressStatus", "", false);
+      return false;
+    }
+    if (value.length < 5) {
+      setStatus(address, "addressStatus", "Address must be at least 5 characters.", false);
+      return false;
+    }
+    setStatus(address, "addressStatus", "Looks good.", true);
+    return true;
+  }
+
+  fullName.addEventListener("input", validateFullName);
+  email.addEventListener("input", validateEmail);
+  email.addEventListener("blur", validateEmail);
+  phone.addEventListener("input", validatePhone);
+  dob.addEventListener("change", validateDob);
+  password.addEventListener("input", function () {
+    validatePassword();
+    if (confirmPassword.value !== "") validateConfirmPassword();
+  });
+  confirmPassword.addEventListener("input", validateConfirmPassword);
+  address.addEventListener("input", validateAddress);
+
+  form.addEventListener("submit", function (e) {
+    const ok =
+      validateFullName() &&
+      validateEmail() &&
+      validatePhone() &&
+      validateDob() &&
+      validatePassword() &&
+      validateConfirmPassword() &&
+      validateAddress();
+
+    if (!ok) {
+      e.preventDefault();
+    }
+  });
+
+  form.addEventListener("reset", function () {
+    setTimeout(() => {
+      document.querySelectorAll(".field-status").forEach(el => {
+        el.textContent = "";
+        el.classList.remove("valid", "invalid");
+      });
+      document.querySelectorAll(".field-control").forEach(el => {
+        el.classList.remove("is-valid", "is-invalid");
+      });
+    }, 0);
+  });
+});
+</script>
 </body>
 </html>

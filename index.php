@@ -185,18 +185,18 @@ declare(strict_types=1);
             and new users will be sent to registration.
           </p>
 
-          <form id="signup" class="cta-form" novalidate>
-            <label class="sr-only" for="cta-email">Email</label>
-            <input
-              id="cta-email"
-              name="email"
-              type="email"
-              placeholder="Enter your email"
-              autocomplete="email"
-              required
-            />
-            <button type="submit" class="btn btn-primary" id="cta-submit">Continue</button>
-          </form>
+          <form id="signup" class="cta-form" method="GET" action="dashboard/auth/registration.php" novalidate>
+  <label class="sr-only" for="cta-email">Email</label>
+  <input
+    id="cta-email"
+    name="email"
+    type="email"
+    placeholder="Enter your email"
+    autocomplete="email"
+    required
+  />
+  <button type="submit" class="btn btn-primary" id="cta-submit">Continue</button>
+</form>
 
           <div id="cta-feedback" class="cta-feedback" aria-live="polite"></div>
 
