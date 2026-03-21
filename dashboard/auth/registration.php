@@ -146,6 +146,98 @@ function normalizeAvatar(string $selectedAvatar, array $allowedAvatars, string $
     return $selectedAvatar;
 }
 
+function normalizeEmail(string $email): string {
+    $email = trim($email);
+    $email = preg_replace('/\s+/', '', $email);
+    return strtolower($email);
+}
+
+function validateEmailAddress(string $email): array {
+    $errors = array();
+
+    if ($email === '') {
+        $errors[] = "Please enter your email address.";
+        return $errors;
+    }
+
+    if (strlen($email) > 254) {
+        $errors[] = "Email address is too long.";
+    }
+
+    if (preg_match('/[\r\n\t]/', $email)) {
+        $errors[] = "Invalid email address.";
+    }
+
+    if (strpos($email, ' ') !== false) {
+        $errors[] = "Email address cannot contain spaces.";
+    }
+
+    if (substr_count($email, '@') !== 1) {
+        $errors[] = "Please enter a valid email address.";
+        return $errors;
+    }
+
+    [$localPart, $domainPart] = explode('@', $email, 2);
+
+    if ($localPart === '' || $domainPart === '') {
+        $errors[] = "Please enter a valid email address.";
+        return $errors;
+    }
+
+    if (strlen($localPart) > 64) {
+        $errors[] = "Email address is invalid.";
+    }
+
+    if (strlen($domainPart) > 253) {
+        $errors[] = "Email address is invalid.";
+    }
+
+    if (str_starts_with($localPart, '.') || str_ends_with($localPart, '.') || strpos($localPart, '..') !== false) {
+        $errors[] = "Email address is invalid.";
+    }
+
+    if (str_starts_with($domainPart, '.') || str_ends_with($domainPart, '.') || strpos($domainPart, '..') !== false) {
+        $errors[] = "Email address is invalid.";
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Please enter a valid email address.";
+    }
+
+    return array_values(array_unique($errors));
+}
+
+function validatePasswordStrength(string $password): array {
+    $errors = array();
+
+    if ($password === '') {
+        $errors[] = "Please enter a password.";
+        return $errors;
+    }
+
+    if (strlen($password) < 8) {
+        $errors[] = "Password must be at least 8 characters long.";
+    }
+
+    if (!preg_match('/[A-Z]/', $password)) {
+        $errors[] = "Password must include at least one uppercase letter.";
+    }
+
+    if (!preg_match('/[a-z]/', $password)) {
+        $errors[] = "Password must include at least one lowercase letter.";
+    }
+
+    if (!preg_match('/[0-9]/', $password)) {
+        $errors[] = "Password must include at least one number.";
+    }
+
+    if (!preg_match('/[\W_]/', $password)) {
+        $errors[] = "Password must include at least one special character.";
+    }
+
+    return $errors;
+}
+
 /*
 |--------------------------------------------------------------------------
 | STAGE 1: DETAILS + SEND OTP
@@ -153,7 +245,7 @@ function normalizeAvatar(string $selectedAvatar, array $allowedAvatars, string $
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_otp'])) {
     $fullName        = trim($_POST['fullName'] ?? '');
-    $email           = trim($_POST['email'] ?? '');
+    $email           = normalizeEmail($_POST['email'] ?? '');
     $phoneRaw        = trim($_POST['phone'] ?? '');
     $password        = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirmPassword'] ?? '';
@@ -168,24 +260,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_otp'])) {
         $errors[] = "Please enter a valid full name.";
     }
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = "Please enter a valid email address.";
-    }
+    $errors = array_merge($errors, validateEmailAddress($email));
+    $errors = array_merge($errors, validatePasswordStrength($password));
 
-    if (preg_match('/[\r\n\t]/', $email)) {
-        $errors[] = "Invalid email address.";
+    if ($password !== $confirmPassword) {
+        $errors[] = "Password and confirm password do not match.";
     }
 
     if ($phoneDigits === '' || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
         $errors[] = "Please enter a valid phone number.";
-    }
-
-    if ($password === '' || strlen($password) < 8) {
-        $errors[] = "Password must be at least 8 characters long.";
-    }
-
-    if ($password !== $confirmPassword) {
-        $errors[] = "Password and confirm password do not match.";
     }
 
     if ($dob === '') {
@@ -195,6 +278,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_otp'])) {
     if ($address === '' || strlen($address) < 5) {
         $errors[] = "Please enter your address.";
     }
+
+    $errors = array_values(array_unique($errors));
 
     if (empty($errors)) {
         $checkUser = mysqli_prepare($conn, "SELECT user_id FROM users WHERE user_email = ? LIMIT 1");
@@ -931,12 +1016,13 @@ textarea.field-control {
 
               <div class="field">
                 <label for="email">Email *</label>
-                <input class="field-control" type="email" id="email" name="email" value="<?php echo h($values['email']); ?>" required>
+                <input class="field-control" type="email" id="email" name="email" value="<?php echo h($values['email']); ?>" autocomplete="email" required>
+                <p class="small-note">Use a real email address. Your OTP will be sent there.</p>
               </div>
 
               <div class="field">
                 <label for="phone">Phone *</label>
-                <input class="field-control" type="text" id="phone" name="phone" value="<?php echo h($values['phone']); ?>" required>
+                <input class="field-control" type="text" id="phone" name="phone" value="<?php echo h($values['phone']); ?>" autocomplete="tel" required>
               </div>
 
               <div class="field">
@@ -946,12 +1032,13 @@ textarea.field-control {
 
               <div class="field">
                 <label for="password">Password *</label>
-                <input class="field-control" type="password" id="password" name="password" required>
+                <input class="field-control" type="password" id="password" name="password" autocomplete="new-password" required>
+                <p class="small-note">Must be at least 8 characters and include uppercase, lowercase, number, and special character.</p>
               </div>
 
               <div class="field">
                 <label for="confirmPassword">Confirm Password *</label>
-                <input class="field-control" type="password" id="confirmPassword" name="confirmPassword" required>
+                <input class="field-control" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
               </div>
 
               <div class="field span-2">
@@ -975,7 +1062,7 @@ textarea.field-control {
                   <?php endforeach; ?>
                 </div>
                 <p class="small-note">
-                    If you don’t select one, the first avatar shown will be used as your default.
+                  If you don’t select one, the first avatar shown will be used as your default.
                 </p>
               </div>
             </div>
