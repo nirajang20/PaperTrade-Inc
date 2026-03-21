@@ -974,7 +974,9 @@ textarea.field-control {
                     </label>
                   <?php endforeach; ?>
                 </div>
-                <p class="small-note">If you do not choose one, the default avatar will be <strong><?php echo h($defaultAvatar); ?></strong>.</p>
+                <p class="small-note">
+                    If you don’t select one, the first avatar shown will be used as your default.
+                </p>
               </div>
             </div>
 
