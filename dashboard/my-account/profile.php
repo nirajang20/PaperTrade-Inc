@@ -238,8 +238,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
   }
 
   $storedHash = null;
-  $stmtCheck = $conn->prepare("SELECT user_password, user_email FROM users WHERE user_id = ?");
   $userEmail = '';
+
+  $stmtCheck = $conn->prepare("SELECT user_password, user_email FROM users WHERE user_id = ?");
   if ($stmtCheck) {
     $stmtCheck->bind_param("i", $user_id);
     if ($stmtCheck->execute()) {
@@ -255,6 +256,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_account'])) {
 
   if ($storedHash && !password_verify($deletePassword, $storedHash)) {
     $errors[] = "The current password you entered is incorrect.";
+  }
+
+  /* ----------------------------------------------------------
+     NEW RULE: USER MUST SELL ALL HOLDINGS BEFORE DELETE
+  ---------------------------------------------------------- */
+  if (empty($errors)) {
+    $openHoldingsCount = 0;
+
+    $stmtHolding = $conn->prepare("
+      SELECT COUNT(*) 
+      FROM holding 
+      WHERE user_id = ? AND quantity > 0
+    ");
+
+    if ($stmtHolding) {
+      $stmtHolding->bind_param("i", $user_id);
+      if ($stmtHolding->execute()) {
+        $stmtHolding->bind_result($openHoldingsCount);
+        $stmtHolding->fetch();
+      } else {
+        $errors[] = "Unable to verify your portfolio holdings.";
+      }
+      $stmtHolding->close();
+    } else {
+      $errors[] = "Unable to prepare holdings verification.";
+    }
+
+    if ($openHoldingsCount > 0) {
+      $errors[] = "You must sell all your stocks before deleting your account.";
+    }
   }
 
   if (!empty($errors)) {
