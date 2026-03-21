@@ -1,5 +1,4 @@
 var admin = {
-  // (A) SHOW/HIDE "NOW LOADING" BLOCK
   loading: (show) => {
     var block = document.getElementById("page-loader");
     if (!block) return;
@@ -10,14 +9,12 @@ var admin = {
     }
   },
 
-  // (B) TOGGLE SIDE BAR
   sidebar: () => {
     var sidebar = document.getElementById("page-sidebar");
     if (!sidebar) return;
     sidebar.classList.toggle("active");
   },
 
-  // (C) SIGN OFF
   bye: () => {
     const swalWithBootstrapButtons = Swal.mixin({
       customClass: {
@@ -37,6 +34,12 @@ var admin = {
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
+        // mark logout state so live dashboard polling won't show fake errors
+        window.__loggingOut = true;
+        try {
+          sessionStorage.setItem("papertrade_logging_out", "1");
+        } catch (e) {}
+
         admin.ajax({
           url: url.host + "auth/ajax/session.php",
           data: { req: "out" },
@@ -47,6 +50,18 @@ var admin = {
               icon: "success"
             }).then(() => {
               window.location.href = url.host + "auth/login.php";
+            });
+          },
+          fail: (message) => {
+            window.__loggingOut = false;
+            try {
+              sessionStorage.removeItem("papertrade_logging_out");
+            } catch (e) {}
+
+            Swal.fire({
+              title: "Logout Failed",
+              text: message || "Unable to log out.",
+              icon: "error"
             });
           }
         });
@@ -60,13 +75,6 @@ var admin = {
     });
   },
 
-  // (D) AJAX FETCH
-  // opt = {
-  //   url: target url,
-  //   data: object,
-  //   ok: function(txt){},
-  //   fail: function(txt){}
-  // }
   ajax: (opt) => {
     let data = new FormData();
     for (let [k, v] of Object.entries(opt.data || {})) {
@@ -111,6 +119,10 @@ var admin = {
       })
       .catch((err) => {
         console.error(err);
+        if (typeof opt.fail === "function") {
+          opt.fail(err.message || "Unable to connect to the server.");
+          return;
+        }
         Swal.fire({
           title: "Request Failed",
           text: err.message || "Unable to connect to the server.",
