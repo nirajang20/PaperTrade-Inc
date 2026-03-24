@@ -276,6 +276,34 @@ foreach ($watchlist as $item) {
   .small-box.bg-primary .metric-delta {
     color: rgba(255,255,255,0.85);
   }
+  .small-box.metric-unrealized-box {
+    background: #a56b33;
+    color: #ffffff;
+    border: 1px solid #b9783a;
+  }
+  body.dark-mode .small-box.metric-unrealized-box {
+    background: #875425;
+    color: #ffffff;
+    border-color: #9f6530;
+  }
+  body.dark-mode .small-box.metric-unrealized-box p {
+    color: rgba(255,255,255,0.92);
+  }
+  .small-box.metric-unrealized-box p {
+    color: rgba(255,255,255,0.92);
+  }
+  .small-box.metric-unrealized-box .metric-number.text-success {
+    color: #ffffff !important;
+  }
+  .small-box.metric-unrealized-box .metric-number.text-danger {
+    color: #ffd1d1 !important;
+  }
+  .small-box.metric-unrealized-box .icon > i {
+    color: rgba(255,255,255,0.18) !important;
+  }
+  body.dark-mode .small-box.metric-unrealized-box .icon > i {
+    color: rgba(255,255,255,0.14) !important;
+  }
   .metric-delta.positive { color: #28a745 !important; }
   .metric-delta.negative { color: #dc3545 !important; }
   .timeline-controls {
@@ -346,7 +374,7 @@ foreach ($watchlist as $item) {
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
         <?php $pnlClass = $unrealizedPnL >= 0 ? "text-success" : "text-danger"; ?>
-        <div class="small-box bg-light">
+        <div class="small-box metric-unrealized-box">
           <div class="inner">
             <h3
               id="metricUnrealized"
@@ -359,9 +387,10 @@ foreach ($watchlist as $item) {
               data-negative-class="text-danger">
               <?=$formatCurrency($unrealizedPnL); ?>
             </h3>
+            <div class="metric-delta small">&nbsp;</div>
             <p class="mb-0">Unrealized P&amp;L</p>
           </div>
-          <div class="icon"><i class="fas fa-chart-line text-muted"></i></div>
+          <div class="icon"><i class="fas fa-chart-line"></i></div>
         </div>
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
@@ -515,6 +544,20 @@ foreach ($watchlist as $item) {
     </div>
 
     <div class="row">
+      <div class="col-12 mb-3">
+        <div class="card card-outline card-warning">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">MARKET NEWS</h3>
+            <span id="portfolioNewsStatus" class="small text-muted">Last Updated | Pending</span>
+          </div>
+          <div class="card-body p-0" id="portfolioNewsList">
+            <div class="text-center text-muted small py-4">Loading portfolio news...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
       <div class="col-lg-8 mb-3">
         <div class="card card-outline card-info h-100">
           <div class="card-header border-0">
@@ -648,9 +691,25 @@ foreach ($watchlist as $item) {
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="<?= URL_PUBLIC ?>news-engine.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const allocationSeries = <?=json_encode($allocationSeries); ?>;
+  const portfolioNewsHoldings = <?=json_encode(array_values(array_unique($holdingsSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  const portfolioNewsWatchlist = <?=json_encode(array_values(array_unique($watchlistSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  const portfolioNewsWidget = window.PaperTradeNews && window.PaperTradeNews.createWidget({
+    endpoint: new URL("news-proxy.php", window.location.href).toString(),
+    containerId: "portfolioNewsList",
+    statusId: "portfolioNewsStatus",
+    scope: "portfolio",
+    portfolioSymbols: portfolioNewsHoldings,
+    watchlistSymbols: portfolioNewsWatchlist,
+    marketContextSymbol: "^GSPC",
+    autoRefreshMs: 180000,
+    emptyMessage: "No recent news for your current holdings.",
+    loadingMessage: "Loading portfolio news...",
+    errorMessage: "Unable to load portfolio news right now."
+  });
 
   const performanceChartEl = document.getElementById("performanceChart");
   const allocationCtx = document.getElementById("allocationChart");
@@ -1142,6 +1201,10 @@ document.addEventListener("DOMContentLoaded", function () {
   if (performanceChartEl) {
     ensureChart();
     refreshPortfolioWorth();
+  }
+
+  if (portfolioNewsWidget) {
+    portfolioNewsWidget.load();
   }
 
   if (allocationCtx && allocationSeries.length) {
