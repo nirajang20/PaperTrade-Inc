@@ -562,6 +562,7 @@ $currentStep = isset($_SESSION['registration_step']) ? (int)$_SESSION['registrat
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Paper Trade | Registration</title>
+<link rel="icon" type="image/png" href="../../img/favicon.png" />
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 :root {
