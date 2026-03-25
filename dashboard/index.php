@@ -1150,17 +1150,40 @@ document.addEventListener("DOMContentLoaded", function () {
         const dt = new Date(timestamp);
         lastUpdateEl.textContent = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       }
-    } catch (error) {
+        } catch (error) {
       console.error("Unable to refresh portfolio worth:", error);
-      if (lastUpdateEl) {
-        lastUpdateEl.textContent = error.status === 401 ? "Session expired" : "Error";
-      }
-      if (window.toastr) {
-        window.toastr.error("Live portfolio update failed" + (error.message ? ": " + error.message : ""));
-      }
+
+      const isLoggingOut =
+        window.__loggingOut === true ||
+        (function () {
+          try {
+            return sessionStorage.getItem("papertrade_logging_out") === "1";
+          } catch (e) {
+            return false;
+          }
+        })();
+
       if (error.status === 401) {
         clearPollTimer();
+
+        if (lastUpdateEl) {
+          lastUpdateEl.textContent = "Session expired";
+        }
+
+        // do not show scary error toast during intentional logout
+        if (isLoggingOut) {
+          return;
+        }
+
         return;
+      }
+
+      if (lastUpdateEl) {
+        lastUpdateEl.textContent = "Error";
+      }
+
+      if (window.toastr) {
+        window.toastr.error("Live portfolio update failed" + (error.message ? ": " + error.message : ""));
       }
     } finally {
       scheduleNextPoll();

@@ -1,18 +1,18 @@
 <?php
 require "lib/Core.php";
 
-if (isset($_POST["req"])) { 
+if (isset($_POST["req"])) {
   switch ($_POST["req"]) {
 
     // (A) INVALID REQUEST
-    default: 
+    default:
       exit("INVALID REQUEST");
 
     // (B) LOGIN
     case "in":
       // (B1) ALREADY SIGNED IN
-      if (isset($_SESSION["user"])) { 
-        exit("OK"); 
+      if (isset($_SESSION["user"])) {
+        exit("OK");
       }
 
       // (B2) VERIFY
@@ -22,13 +22,13 @@ if (isset($_POST["req"])) {
 
         // Get user by email
         $user = $DB->fetch(
-          "SELECT * FROM `users` WHERE `user_email`=?", 
+          "SELECT * FROM `users` WHERE `user_email`=?",
           [$_POST["email"]]
         );
 
         $valid = is_array($user);
-        if ($valid) { 
-          $valid = password_verify($_POST["password"], $user["user_password"]); 
+        if ($valid) {
+          $valid = password_verify($_POST["password"], $user["user_password"]);
         }
 
         if ($valid) {
@@ -45,31 +45,25 @@ if (isset($_POST["req"])) {
           }
           $_SESSION['active_email'] = $_POST["email"];
           $_SESSION['welcome_back'] = true;
-          // 🕒 UPDATE LAST LOGIN DATE
-          $today = date("Y-m-d H:i:s"); // or Y-m-d if you want only date
-          // Use a compatible DB method if available to avoid calling a non-existent DB::query()
+          // UPDATE LAST LOGIN DATE
+          $today = date("Y-m-d H:i:s");
           if (method_exists($DB, 'query')) {
             $DB->query(
               "UPDATE `users` SET `last_login`=? WHERE `user_email`=?",
               [$today, $_POST["email"]]
             );
           } elseif (method_exists($DB, 'exec')) {
-            // exec typically accepts a raw SQL string
             $DB->exec(
               "UPDATE `users` SET `last_login`='" . addslashes($today) . "' WHERE `user_email`='" . addslashes($_POST["email"]) . "'"
             );
           } elseif (method_exists($DB, 'run')) {
-            // some DB wrappers use run()
             $DB->run(
               "UPDATE `users` SET `last_login`=? WHERE `user_email`=?",
               [$today, $_POST["email"]]
             );
           } elseif (method_exists($DB, 'prepare')) {
-            // assume a PDO-like interface
             $stmt = $DB->prepare("UPDATE `users` SET `last_login`=? WHERE `user_email`=?");
             if ($stmt) { $stmt->execute([$today, $_POST["email"]]); }
-          } else {
-            // No compatible method found; skip update to avoid fatal error
           }
 
           exit("OK");
