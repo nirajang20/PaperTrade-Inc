@@ -493,6 +493,15 @@ if (!empty($watchlistItems)) {
     <small class="text-muted">Updated at <?=date('Y-m-d H:i:s')?> CST</small>
   </div>
 </div>
+        <div class="card card-outline card-warning mb-4">
+          <div class="card-header border-0 d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">ASSET NEWS</h3>
+            <span id="assetNewsStatus" class="small text-muted">Last Updated | Pending</span>
+          </div>
+          <div class="card-body p-0" id="assetNewsList">
+            <div class="text-center text-muted small py-4">Select an asset to load news.</div>
+          </div>
+        </div>
         <!-- AVAILABLE STOCKS -->
         <div class="card card-outline card-primary mb-4">
           <div class="card-header border-0 d-flex justify-content-between align-items-center">
@@ -815,6 +824,7 @@ if (!empty($watchlistItems)) {
   }
 </style>
 
+<script src="<?= URL_PUBLIC ?>news-engine.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const apiBase = "https://api.paper-trade.org";
@@ -872,6 +882,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const chartEl = document.getElementById("chart");
   const availableCashWrapper = document.getElementById("available-cash-wrapper");
   const availableCash = availableCashWrapper ? Number(availableCashWrapper.getAttribute('data-available-cash') || 0) : 0;
+  const assetNewsWidget = window.PaperTradeNews && window.PaperTradeNews.createWidget({
+    endpoint: new URL("../news-proxy.php", window.location.href).toString(),
+    containerId: "assetNewsList",
+    statusId: "assetNewsStatus",
+    scope: "symbol",
+    autoRefreshMs: 180000,
+    emptyMessage: "No recent news for this asset.",
+    loadingMessage: "Loading asset news...",
+    errorMessage: "Unable to load asset news right now."
+  });
 
   const AUTO_REFRESH_MS = 5000;
   const CHART_AUTO_REFRESH_MS = 15000;
@@ -1425,6 +1445,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const priceChange = stock.price_change || {};
     const priceChangeAmount = toNumber(priceChange.amount);
     const priceChangePct = priceChange.percentage;
+    const previousSymbol = state.currentSymbol;
 
     state.currentSymbol = stock.ticker;
     state.livePrice = clampNumber(stock.last_price);
@@ -1480,6 +1501,9 @@ document.addEventListener('DOMContentLoaded', function () {
     updateOrderEstimates();
     setActiveSymbol(stock.ticker);
     updateChartTitle();
+    if (assetNewsWidget && stock.ticker && stock.ticker !== previousSymbol) {
+      assetNewsWidget.load(stock.ticker);
+    }
     if (!options || !options.skipChart) {
       return loadChart(stock.ticker, state.currentRange, options);
     }
