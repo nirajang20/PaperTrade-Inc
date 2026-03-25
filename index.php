@@ -1,175 +1,250 @@
+<?php
+declare(strict_types=1);
+?>
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PaperTrade — Practice Trading with Virtual Money</title>
-    <meta name="description" content="Practice trading stocks with real-time simulated data and virtual money. Learn, experiment, and build confidence risk‑free." />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="icon" href="img/favicon.png" />
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="container nav">
-        <a class="brand" href="http://paper-trade.org/" aria-label="PaperTrade home">
-          <!-- LOGO ADDED HERE -->
-          <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
-        </a>
-        <button class="menu-toggle" aria-controls="primary-nav" aria-expanded="false">☰</button>
-        <nav id="primary-nav" class="nav-links">
-          <a href="#features">Features</a>
-          <a href="#how">How it Works</a>
-          <a href="#learn">Learn</a>
-          <a href="dashboard/index.php" class="btn btn-ghost">Log In</a>
-          <a href="#cta" class="btn btn-primary">Start Trading</a>
-        </nav>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PaperTrade — Practice Trading with Virtual Money</title>
+  <meta
+    name="description"
+    content="Practice trading stocks with virtual money. Learn by doing, test strategies, and build confidence in a realistic trading workspace."
+  />
+  <link rel="icon" href="img/favicon.png" />
+  <link rel="stylesheet" href="css/styles.css?v=<?php echo time(); ?>" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.php" aria-label="PaperTrade home">
+        <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img" />
+      </a>
+
+      <button class="menu-toggle" type="button" aria-controls="primary-nav" aria-expanded="false" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav id="primary-nav" class="nav-links">
+        <a href="#hero">Home</a>
+        <a href="#how">How It Works</a>
+        <a href="#cta">Get Started</a>
+        <a href="dashboard/auth/login.php" class="nav-login">Log In</a>
+        <a href="#cta" class="btn btn-primary nav-cta">Get Started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <section id="hero" class="hero">
+      <div class="hero-glow hero-glow-a"></div>
+      <div class="hero-glow hero-glow-b"></div>
+
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">Paper Trading Workspace</span>
+          <h1>Practice trading with a real market feel.</h1>
+          <p class="hero-text">
+            Explore the market, track price movement, and build confidence in a
+            trading environment designed for learning — without risking real money.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#cta" class="btn btn-primary btn-lg">Get Started Free</a>
+            <a href="#how" class="btn btn-secondary btn-lg">How It Works</a>
+          </div>
+
+          <div class="hero-meta">
+            <div class="meta-pill">
+              <span class="meta-label">Starting Balance</span>
+              <strong>$100,000 virtual cash</strong>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">Environment</span>
+              <strong>Safe simulated trading</strong>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">Experience</span>
+              <strong>Dashboard-style practice</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-label="PaperTrade dashboard snapshot">
+          <div class="hero-panel">
+            <div class="hero-panel-header">
+              <div class="panel-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="panel-title">PaperTrade Dashboard Snapshot</div>
+            </div>
+
+            <div class="hero-panel-body">
+              <div class="stats-row">
+                <div class="stat-card">
+                  <span>Portfolio Value</span>
+                  <strong>$104,280.42</strong>
+                  <em class="up">+1.84%</em>
+                </div>
+
+                <div class="stat-card">
+                  <span>Buying Power</span>
+                  <strong>$82,410.00</strong>
+                  <em>Available</em>
+                </div>
+
+                <div class="stat-card">
+                  <span>Open Positions</span>
+                  <strong>8 Holdings</strong>
+                  <em class="up">Active</em>
+                </div>
+              </div>
+
+              <div class="performance-card">
+                <div class="performance-head">
+                  <div>
+                    <span class="mini-label">Performance View</span>
+                    <strong>Simulated Portfolio Trend</strong>
+                  </div>
+                  <span class="performance-badge up">+2.31%</span>
+                </div>
+                <canvas id="hero-mini-chart" width="520" height="140" aria-hidden="true"></canvas>
+              </div>
+
+              <div class="market-board-card">
+                <div class="market-board-head">
+                  <div>
+                    <span class="mini-label">Live Market Board</span>
+                    <strong>Tracked Symbols</strong>
+                  </div>
+                  <span class="market-board-status" id="market-board-status">Loading…</span>
+                </div>
+
+                <div id="hero-market-board" class="market-board-grid">
+                  <div class="market-board-empty">Loading market data…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <main id="home">
-      <!-- Hero -->
-      <section class="hero container reveal" aria-labelledby="hero-title">
-        <div class="hero-content">
-          <h1 id="hero-title">Trade smarter. Risk‑free. Fun.</h1>
-          <p class="subhead">Practice buying and selling stocks with live‑like market movement — all with virtual money. Learn by doing, build confidence, and level up your strategy.</p>
-          <div class="hero-ctas">
-            <a href="#cta" class="btn btn-primary btn-lg">Start Trading Now</a>
-            <a href="#how" class="btn btn-ghost btn-lg">Practice with Virtual Money</a>
-          </div>
+    <section class="market-strip" aria-label="Live market ticker">
+      <div class="container">
+        <div id="ticker-row" class="market-row">
+          <div class="ticker-loading">Loading market data…</div>
         </div>
-        <div class="hero-visual" aria-hidden="true">
-          <div class="device">
-            <canvas id="hero-chart" width="360" height="220" aria-hidden="true"></canvas>
-            <div class="device-glow"></div>
-          </div>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <div class="container">
+        <div class="section-heading">
+          <span class="eyebrow">How It Works</span>
+          <h2>Start in three simple steps</h2>
+          <p class="section-sub">
+            Create your account, receive virtual buying power, and start practicing
+            inside a market-like workspace built to help you learn by doing.
+          </p>
         </div>
-      </section>
 
-      <!-- Ticker -->
-      <section class="ticker" aria-label="Market ticker">
-        <div class="ticker-track" id="ticker-track"></div>
-      </section>
+        <div class="steps-grid">
+          <article class="step-card">
+            <div class="step-number">1</div>
+            <h3>Create your account</h3>
+            <p>Sign up quickly and access your PaperTrade workspace from any device.</p>
+          </article>
 
-      <!-- Features -->
-      <section id="features" class="container section reveal" aria-labelledby="features-title">
-        <h2 id="features-title">Everything you need to learn by doing</h2>
-        <p class="section-sub">PaperTrade combines a playful interface with powerful simulated data so you can experiment safely.</p>
-        <div class="grid features-grid">
-          <article class="card">
-            <div class="icon" aria-hidden="true">📈</div>
-            <h3>Live‑Like Prices</h3>
-            <p>Watch prices update continuously with realistic market motion so your practice feels authentic.</p>
+          <article class="step-card">
+            <div class="step-number">2</div>
+            <h3>Receive virtual cash</h3>
+            <p>Start with <strong>$100,000</strong> in simulated buying power to explore safely.</p>
           </article>
-          <article class="card">
-            <div class="icon" aria-hidden="true">🎯</div>
-            <h3>Strategy Sandbox</h3>
-            <p>Test entries, stops, and scaling without risking a cent. Iterate quickly and learn faster.</p>
-          </article>
-          <article class="card">
-            <div class="icon" aria-hidden="true">🧭</div>
-            <h3>Guided Journeys</h3>
-            <p>Follow bite‑sized missions that teach core concepts from order types to portfolio balance.</p>
-          </article>
-          <article class="card">
-            <div class="icon" aria-hidden="true">🏆</div>
-            <h3>Progress & Badges</h3>
-            <p>Track your returns, streaks, and milestones. Share wins, compare with friends, stay motivated.</p>
+
+          <article class="step-card">
+            <div class="step-number">3</div>
+            <h3>Practice and review</h3>
+            <p>Track symbols, test decisions, and learn from your portfolio performance over time.</p>
           </article>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- How it Works -->
-      <section id="how" class="section muted reveal" aria-labelledby="how-title">
-        <div class="container">
-          <h2 id="how-title">How it works</h2>
-          <div class="steps">
-            <div class="step">
-              <div class="step-num">1</div>
-              <h3>Create your account</h3>
-              <p>Sign up in seconds and get instant access on any device.</p>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <h3>Get virtual cash</h3>
-              <p>Start with $100,000 in paper money to explore and learn.</p>
-            </div>
-            <div class="step">
-              <div class="step-num">3</div>
-              <h3>Trade in real‑time</h3>
-              <p>Place market or limit orders and track performance over time.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Learn Section with Animated Chart -->
-      <section id="learn" class="container section reveal" aria-labelledby="learn-title">
-        <div class="learn-wrap">
-          <div>
-            <h2 id="learn-title">See your decisions play out</h2>
-            <p class="section-sub">Our animated charts bring your trades to life. Watch trends form, adjust your plan, and understand the why behind every move.</p>
-            <ul class="bullets">
-              <li><strong>Readable charts:</strong> Clean visuals with helpful context.</li>
-              <li><strong>Simulated fills:</strong> Instant feedback on orders.</li>
-              <li><strong>Performance view:</strong> Equity, P&L, drawdown and more.</li>
-            </ul>
-            <div class="inline-ctas">
-              <a href="#features" class="btn btn-ghost">Explore Features</a>
-            </div>
-          </div>
-          <div class="learn-chart">
-            <canvas id="learn-chart" width="520" height="280" aria-hidden="true"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <!-- Call to Action / Sign Up -->
-      <section id="cta" class="container section reveal">
+    <section id="cta" class="section cta-section">
+      <div class="container">
         <div class="cta-card">
-          <h2>Ready to practice with virtual money?</h2>
-          <p>Start trading in minutes — no credit card required.</p>
-            <form id="signup" class="signup" action="dashboard/login.php" method="get" onsubmit="event.preventDefault(); window.location.href='dashboard/login.php?email=' + encodeURIComponent(document.getElementById('email').value);">
-            <label class="sr-only" for="email">Email</label>
-            <input id="email" type="email" placeholder="Enter your email" autocomplete="email" required />
-            <button class="btn btn-primary" type="submit">Create Free Account</button>
-            </form>
-          <small class="disclaimer">This is a learning tool. No real currency is used. Prices are simulated and for educational purposes only.</small>
-        </div>
-      </section>
-    </main>
+          <span class="eyebrow">Get Started</span>
+          <h2>Ready to try PaperTrade?</h2>
+          <p>
+            Enter your email to continue. Existing users will be sent to login,
+            and new users will be sent to registration.
+          </p>
 
-    <footer class="site-footer">
-      <div class="container footer-grid">
-        <div>
-          <a class="brand" href="index.php">
-            <!-- LOGO ADDED HERE -->
-            <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img-foot" />
-          </a>
-          <p class="foot-note">Practice stock trading with virtual money. Learn by doing in a safe, playful environment.</p>
-        </div>
-        <div>
-          <h4>Company</h4>
-          <a href="index.php#features">Features</a>
-          <a href="index.php#how">How it Works</a>
-          <a href="index.php#learn">Learn</a>
-        </div>
-        <div>
-          <h4>Resources</h4>
-          <a href="#">Guides</a>
-          <a href="#">Tutorials</a>
-          <a href="#">FAQ</a>
-        </div>
-        <div>
-          <h4>Legal</h4>
-          <!-- LINKS UPDATED -->
-          <a href="terms.php">Terms</a>
-          <a href="privacy.php">Privacy</a>
+          <form id="signup" class="cta-form" method="GET" action="dashboard/auth/registration.php" novalidate>
+  <label class="sr-only" for="cta-email">Email</label>
+  <input
+    id="cta-email"
+    name="email"
+    type="email"
+    placeholder="Enter your email"
+    autocomplete="email"
+    required
+  />
+  <button type="submit" class="btn btn-primary" id="cta-submit">Continue</button>
+</form>
+
+          <div id="cta-feedback" class="cta-feedback" aria-live="polite"></div>
+
+          <small class="disclaimer">
+            This is a learning tool. No real currency is used. Prices are for educational and simulated practice purposes.
+          </small>
         </div>
       </div>
-      <div class="container tiny">© <span id="year"></span> PaperTrade — For learning purposes only | All Rights Reserved.</div>
-    </footer>
+    </section>
 
-    <script src="/js/dashboard-stocks.js?v=<?php echo time(); ?>"></script>
-    <script src="js/script.js"></script>
-  </body>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand-block">
+        <a class="brand" href="index.php" aria-label="PaperTrade home">
+          <img src="img/logo-horizontal.png" alt="PaperTrade Logo" class="logo-img-foot" />
+        </a>
+        <p class="foot-note">
+          Practice stock trading with virtual money in a clean, modern workspace built for learning.
+        </p>
+      </div>
+
+      <div>
+        <h4>Product</h4>
+        <a href="#hero">Home</a>
+        <a href="#how">How It Works</a>
+        <a href="#cta">Get Started</a>
+      </div>
+
+      <div>
+        <h4>Account</h4>
+        <a href="dashboard/auth/login.php">Log In</a>
+        <a href="dashboard/auth/registration.php">Register</a>
+      </div>
+
+      <div>
+        <h4>Legal</h4>
+        <a href="terms.php">Terms</a>
+        <a href="privacy.php">Privacy</a>
+      </div>
+    </div>
+
+    <div class="container tiny">
+      © <span id="year"></span> PaperTrade — For learning purposes only | All Rights Reserved.
+    </div>
+  </footer>
+
+  <script src="js/script.js?v=<?php echo time(); ?>"></script>
+</body>
 </html>
