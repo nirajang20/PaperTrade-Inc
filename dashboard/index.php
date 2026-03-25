@@ -517,7 +517,7 @@ foreach ($watchlist as $item) {
 
     <div class="row">
       <div class="col-12 mb-3">
-        <div class="card card-outline card-warning">
+        <div class="card card-outline card-secondary">
           <div class="card-header border-0 d-flex justify-content-between align-items-center">
             <h3 class="card-title mb-0">MARKET NEWS</h3>
             <span id="portfolioNewsStatus" class="small text-muted">Last Updated | Pending</span>
@@ -663,7 +663,7 @@ foreach ($watchlist as $item) {
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="<?= URL_PUBLIC ?>news-engine.js"></script>
+<script src="<?= URL_PUBLIC ?>news-engine.js?v=<?= filemtime(PATH_BASE . 'public/news-engine.js') ?>"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const allocationSeries = <?=json_encode($allocationSeries); ?>;

@@ -858,7 +858,7 @@ if (!empty($watchlistItems)) {
   }
 </style>
 
-<script src="<?= URL_PUBLIC ?>news-engine.js"></script>
+<script src="<?= URL_PUBLIC ?>news-engine.js?v=<?= filemtime(PATH_BASE . 'public/news-engine.js') ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const apiBase = "https://api.paper-trade.org";
