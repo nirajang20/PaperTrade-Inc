@@ -16,8 +16,10 @@ if (session_status() === PHP_SESSION_NONE) {
 | CONFIG
 |--------------------------------------------------------------------------
 */
-$turnstileSiteKey   = "1x00000000000000000000AA";
-$turnstileSecretKey = "1x0000000000000000000000000000000AA";
+$keys = mysqli_query($conn, "SELECT site_key, secret_key FROM settings WHERE id = 1 LIMIT 1");
+$key = mysqli_fetch_assoc($keys);
+$turnstileSiteKey   = $key['site_key'];
+$turnstileSecretKey = $key['secret_key'];
 $otpEndpoint        = "https://send-email.paper-trade.org/send_otp.php";
 $otpPurpose         = "register";
 $otpExpiryMinutes   = 10;

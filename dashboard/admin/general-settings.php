@@ -220,6 +220,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         generalAddFlash("success", "Database Restored", "The uploaded backup has been applied successfully.");
         break;
 
+      case "update_api_keys":
+        $siteKey = trim($_POST["site_key"] ?? "");
+        $secretKey = trim($_POST["secret_key"] ?? "");
+
+        if (empty($siteKey) || empty($secretKey)) {
+          throw new RuntimeException("Both Site Key and Secret Key are required.");
+        }
+
+        $stmt = $conn->prepare(
+          "INSERT INTO `settings` (`id`, `site_key`, `secret_key`) VALUES (1, ?, ?)
+           ON DUPLICATE KEY UPDATE `site_key` = VALUES(`site_key`), `secret_key` = VALUES(`secret_key`)"
+        );
+        $stmt->bind_param("ss", $siteKey, $secretKey);
+        $stmt->execute();
+        $stmt->close();
+
+        generalAddFlash("success", "API Keys Updated", "Site Key and Secret Key have been saved successfully.");
+        break;
+
       default:
         generalAddFlash("error", "Invalid Action", "The requested action is not supported.");
     }
@@ -228,6 +247,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 
   generalRedirectSelf();
+}
+
+// Fetch current API keys
+$currentSiteKey = "";
+$currentSecretKey = "";
+$result = $conn->query("SELECT site_key, secret_key FROM settings WHERE id = 1");
+if ($result && $row = $result->fetch_assoc()) {
+  $currentSiteKey = $row["site_key"] ?? "";
+  $currentSecretKey = $row["secret_key"] ?? "";
 }
 
 $alerts = $_SESSION["admin_flash"];
@@ -340,6 +368,44 @@ require PATH_LIB . "PAGE-top.php";
               <button type="submit" class="btn btn-danger">
                 <i class="fas fa-history mr-1"></i>
                 Restore Backup
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12 col-lg-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white border-0">
+            <div class="d-flex align-items-center">
+              <div class="pr-3 text-info settings-card-icon">
+                <i class="fas fa-key"></i>
+              </div>
+              <div>
+                <h3 class="card-title mb-0">API Keys</h3>
+                <small class="text-muted">Configure your Site Key and Secret Key.</small>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="text-muted mb-4">
+              Update your Cloudflare reCAPTCHA credentials. These keys are required to enable CAPTCHA protection on your forms and secure user interactions against automated attacks and bots.
+            </p>
+            <form method="post" autocomplete="off">
+              <input type="hidden" name="action" value="update_api_keys">
+              <div class="form-group">
+                <label for="site_key">Site Key</label>
+                <input type="text" id="site_key" name="site_key" class="form-control" value="<?= generalEscape($currentSiteKey) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="secret_key">Secret Key</label>
+                <input type="password" id="secret_key" name="secret_key" class="form-control" value="<?= generalEscape($currentSecretKey) ?>" required>
+              </div>
+              <button type="submit" class="btn btn-info">
+                <i class="fas fa-save mr-1"></i>
+                Save API Keys
               </button>
             </form>
           </div>
