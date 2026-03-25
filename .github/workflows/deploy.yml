@@ -7,7 +7,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: SSH and Pull
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 74.208.158.229
@@ -15,10 +15,19 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
+            echo "Starting deployment"
             cd /home/nirajan/web/paper-trade.org/public_html
-            
-            # Simple Push & Pull logic
-            git fetch origin main
+            git config --global --add safe.directory /home/nirajan/web/paper-trade.org/public_html
+
+            # Backup protected files
+            cp dashboard/lib/Core.php /tmp/Core.php.bak
+            cp dashboard/lib/LIB-database.php /tmp/LIB-database.php.bak
+
+            git fetch origin
             git reset --hard origin/main
-            
-            echo "Latest code pulled and deployed."
+
+            # Restore protected files
+            cp /tmp/Core.php.bak dashboard/lib/Core.php
+            cp /tmp/LIB-database.php.bak dashboard/lib/LIB-database.php
+
+            echo "Deployment finished"
