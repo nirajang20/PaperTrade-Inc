@@ -42,10 +42,16 @@ function login() {
       window.location.href = "../index.php";
     },
     fail: function (message) {
-      if (typeof swal === "function") {
-        swal("Login failed", message || "Unable to sign in.");
+      if (typeof Swal !== "undefined") {
+        Swal.fire({
+          title: "Login Failed",
+          text: message || "Invalid email or password.",
+          icon: "error",
+          confirmButtonText: "Try Again",
+          confirmButtonColor: "#6c5ce7"
+        });
       } else {
-        alert(message || "Unable to sign in.");
+        alert(message || "Invalid email or password.");
       }
     }
   });

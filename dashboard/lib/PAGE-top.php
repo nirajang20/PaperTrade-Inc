@@ -611,9 +611,6 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
               </li>
 
               <div class="dropdown-divider"></div>
-              <a href="javascript:void(0)" class="dropdown-item dropdown-footer text-danger" onclick="admin.bye()">
-                <i class="fas fa-sign-out-alt mr-2"></i> Logout
-              </a>
             </ul>
           </li>
         </ul>
@@ -761,12 +758,6 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
                     <a href="<?= URL_HOST ?>my-account/activities.php" class="nav-link">
                       <i class="fas fa-tasks nav-icon text-danger"></i>
                       <p>Activities</p>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a href="javascript:void(0)" class="nav-link" onclick="admin.bye()">
-                      <i class="fas fa-sign-out-alt nav-icon text-danger"></i>
-                      <p>Logout</p>
                     </a>
                   </li>
                 </ul>
