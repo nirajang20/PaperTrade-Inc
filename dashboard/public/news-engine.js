@@ -4,8 +4,11 @@
   var STYLE_ID = "papertrade-news-engine-style";
   var SAVED_KEY = "papertrade:news:saved";
   var DISMISSED_KEY = "papertrade:news:dismissed";
+<<<<<<< HEAD
   var READ_KEY = "papertrade:news:read";
   var EXPANDED_KEY = "papertrade:news:expanded";
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
   var TRUSTED = ["reuters", "bloomberg", "associated press", "ap news", "wsj", "wall street journal", "cnbc", "financial times"];
   var FILTERS = [["all", "All"], ["portfolio", "Portfolio"], ["watchlist", "Watchlist"], ["stocks", "Stocks"], ["crypto", "Crypto"], ["market", "Market"]];
   var WINDOWS = [["1d", "Last 24h", 1], ["3d", "Last 3d", 3], ["7d", "Last 7d", 7]];
@@ -15,6 +18,7 @@
     var style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
+<<<<<<< HEAD
       .pt-ni-host{background:transparent;color:inherit}.pt-ni-layout,.pt-ni-asset{display:block}
       .pt-ni-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding:0 0 14px;border-bottom:1px solid #d7dde5}
       .pt-ni-group{display:flex;flex-wrap:wrap;gap:8px}.pt-ni-chip{border:1px solid #d1d5db;background:#fff;color:#4b5563;padding:5px 10px;font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer}
@@ -24,13 +28,27 @@
       .pt-ni-kicker,.pt-ni-title-sm{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#1f2937}
       .pt-ni-feature-main,.pt-ni-item-main{cursor:pointer}.pt-ni-feature-main:hover .pt-ni-head,.pt-ni-item-main:hover .pt-ni-subhead{text-decoration:underline}
       .pt-ni-meta{margin:0 0 6px;font-size:11px;color:#6b7280;font-weight:600}.pt-ni-unread-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;margin-right:6px;vertical-align:middle}.pt-ni-head{margin:0;font-size:24px;line-height:1.3;font-weight:700;color:#111827}
+=======
+      .pt-ni-host{background:#fff;color:#111827}.pt-ni-layout,.pt-ni-asset{display:block}
+      .pt-ni-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding:0 0 14px;border-bottom:1px solid #d7dde5}
+      .pt-ni-group{display:flex;flex-wrap:wrap;gap:8px}.pt-ni-chip{border:1px solid #d1d5db;background:#fff;color:#4b5563;padding:5px 10px;font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer}
+      .pt-ni-chip.on{background:#111827;border-color:#111827;color:#fff}.pt-ni-toolbtn{border:1px solid #d1d5db;background:#fff;color:#4b5563;padding:5px 10px;font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer}
+      .pt-ni-feature{padding:16px 0 18px;border-bottom:1px solid #d7dde5}
+      .pt-ni-kicker,.pt-ni-title-sm{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#1f2937}
+      .pt-ni-feature-main,.pt-ni-item-main{cursor:pointer}.pt-ni-feature-main:hover .pt-ni-head,.pt-ni-item-main:hover .pt-ni-subhead{text-decoration:underline}
+      .pt-ni-meta{margin:0 0 6px;font-size:11px;color:#6b7280;font-weight:600}.pt-ni-head{margin:0;font-size:24px;line-height:1.3;font-weight:700;color:#111827}
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       .pt-ni-copy{margin:10px 0 0;font-size:14px;line-height:1.7;color:#4b5563;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
       .pt-ni-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,1fr);gap:24px;padding-top:18px}.pt-ni-stack{display:grid;gap:18px}
       .pt-ni-section+.pt-ni-section{margin-top:18px;padding-top:16px;border-top:1px solid #d7dde5}.pt-ni-stack .pt-ni-section+.pt-ni-section{margin-top:0}
       .pt-ni-item{padding:10px 0;border-bottom:1px solid #e5e7eb}.pt-ni-item:last-child,.pt-ni-empty:last-child{border-bottom:none}
       .pt-ni-subhead{margin:0;font-size:15px;line-height:1.45;font-weight:600;color:#111827}.pt-ni-copy-sm{margin:5px 0 0;font-size:13px;line-height:1.55;color:#4b5563;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
       .pt-ni-rowline,.pt-ni-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+<<<<<<< HEAD
       .pt-ni-tag{border:1px solid #d1d5db;color:#4b5563;padding:3px 8px;font-size:10px;font-weight:700;text-transform:uppercase}.pt-ni-tag.ctx{border-color:#c7d2fe;color:#4338ca;background:#eef2ff}.pt-ni-tag.trust{border-color:#bbf7d0;color:#166534;background:#f0fdf4}.pt-ni-tag.saved{border-color:#fde68a;color:#92400e;background:#fffbeb}.pt-ni-tag.dupe{border-color:#bfdbfe;color:#1d4ed8;background:#eff6ff}
+=======
+      .pt-ni-tag{border:1px solid #d1d5db;color:#4b5563;padding:3px 8px;font-size:10px;font-weight:700;text-transform:uppercase}.pt-ni-tag.ctx{border-color:#c7d2fe;color:#4338ca;background:#eef2ff}.pt-ni-tag.trust{border-color:#bbf7d0;color:#166534;background:#f0fdf4}.pt-ni-tag.saved{border-color:#fde68a;color:#92400e;background:#fffbeb}
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       .pt-ni-btn{border:none;background:none;padding:0;font-size:11px;font-weight:700;text-transform:uppercase;color:#2563eb;cursor:pointer}.pt-ni-btn.muted{color:#6b7280}
       .pt-ni-empty,.pt-ni-note{padding:10px 0;border-bottom:1px solid #e5e7eb;font-size:12px;line-height:1.6;color:#6b7280}.pt-ni-skel{padding:10px 0;border-bottom:1px solid #e5e7eb}.pt-ni-skel:last-child{border-bottom:none}
       .pt-ni-flash{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #e5e7eb;font-size:12px;line-height:1.6;color:#4b5563}
@@ -42,13 +60,22 @@
       .pt-ni-modal-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid #e5e7eb}.pt-ni-link{display:inline-flex;align-items:center;border:1px solid #111827;background:#111827;color:#fff;padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;text-decoration:none}
       .pt-ni-hidden-list{margin-top:14px}.pt-ni-hidden-item{padding:10px 0;border-bottom:1px solid #e5e7eb}.pt-ni-hidden-item:last-child{border-bottom:none}
       .pt-ni-hidden-head{margin:0;font-size:14px;line-height:1.5;font-weight:600;color:#111827}.pt-ni-hidden-meta{margin:0 0 5px;font-size:11px;line-height:1.6;color:#6b7280}
+<<<<<<< HEAD
       body.dark-mode .pt-ni-host{background:transparent;color:inherit} body.dark-mode .pt-ni-toolbar,body.dark-mode .pt-ni-feature,body.dark-mode .pt-ni-section+.pt-ni-section{border-color:#374151}
       body.dark-mode .pt-ni-chip,body.dark-mode .pt-ni-toolbtn,body.dark-mode .pt-ni-toolstat{background:#1f2937;border-color:#4b5563;color:#d1d5db} body.dark-mode .pt-ni-chip.on{background:#f3f4f6;border-color:#f3f4f6;color:#111827}
+=======
+      body.dark-mode .pt-ni-host{background:#1f2937;color:#e5e7eb} body.dark-mode .pt-ni-toolbar,body.dark-mode .pt-ni-feature,body.dark-mode .pt-ni-section+.pt-ni-section{border-color:#374151}
+      body.dark-mode .pt-ni-chip,body.dark-mode .pt-ni-toolbtn{background:#1f2937;border-color:#4b5563;color:#d1d5db} body.dark-mode .pt-ni-chip.on{background:#f3f4f6;border-color:#f3f4f6;color:#111827}
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       body.dark-mode .pt-ni-kicker,body.dark-mode .pt-ni-title-sm{color:#f3f4f6} body.dark-mode .pt-ni-meta,body.dark-mode .pt-ni-empty,body.dark-mode .pt-ni-note,body.dark-mode .pt-ni-modal-meta{color:#9ca3af}
       body.dark-mode .pt-ni-head,body.dark-mode .pt-ni-subhead,body.dark-mode .pt-ni-modal-head{color:#f9fafb} body.dark-mode .pt-ni-copy,body.dark-mode .pt-ni-copy-sm,body.dark-mode .pt-ni-modal-copy{color:#d1d5db}
       body.dark-mode .pt-ni-item,body.dark-mode .pt-ni-empty,body.dark-mode .pt-ni-note,body.dark-mode .pt-ni-skel,body.dark-mode .pt-ni-top,body.dark-mode .pt-ni-modal-actions,body.dark-mode .pt-ni-flash,body.dark-mode .pt-ni-hidden-item{border-color:#374151}
       body.dark-mode .pt-ni-line{background:#374151} body.dark-mode .pt-ni-tag{border-color:#4b5563;color:#d1d5db;background:#243041} body.dark-mode .pt-ni-tag.ctx{border-color:#6366f1;color:#c7d2fe;background:rgba(67,56,202,.18)}
+<<<<<<< HEAD
       body.dark-mode .pt-ni-tag.trust{border-color:#14532d;color:#bbf7d0;background:rgba(20,83,45,.25)} body.dark-mode .pt-ni-tag.saved{border-color:#92400e;color:#fde68a;background:rgba(146,64,14,.22)} body.dark-mode .pt-ni-tag.dupe{border-color:#1d4ed8;color:#bfdbfe;background:rgba(37,99,235,.2)}
+=======
+      body.dark-mode .pt-ni-tag.trust{border-color:#14532d;color:#bbf7d0;background:rgba(20,83,45,.25)} body.dark-mode .pt-ni-tag.saved{border-color:#92400e;color:#fde68a;background:rgba(146,64,14,.22)}
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       body.dark-mode .pt-ni-btn{color:#93c5fd} body.dark-mode .pt-ni-btn.muted{color:#9ca3af} body.dark-mode .pt-ni-flash{color:#d1d5db} body.dark-mode .pt-ni-panel{background:#1f2937;border-color:#374151} body.dark-mode .pt-ni-close{background:#1f2937;border-color:#4b5563;color:#d1d5db} body.dark-mode .pt-ni-link{background:#f3f4f6;border-color:#f3f4f6;color:#111827}
       body.dark-mode .pt-ni-hidden-head{color:#f9fafb} body.dark-mode .pt-ni-hidden-meta{color:#9ca3af}
       @media (max-width:991px){.pt-ni-head{font-size:20px}.pt-ni-grid{grid-template-columns:1fr;gap:18px}.pt-ni-stack{gap:16px}}
@@ -61,6 +88,7 @@
   function uniq(list) { var seen = {}, out = []; (list || []).forEach(function (v) { v = String(v || "").trim().toUpperCase(); if (v && !seen[v]) { seen[v] = true; out.push(v); } }); return out; }
   function read(key) { try { var v = JSON.parse(window.localStorage.getItem(key) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
   function write(key, val) { try { window.localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+<<<<<<< HEAD
   function readBool(key, fallback) {
     try {
       var raw = window.localStorage.getItem(key);
@@ -69,6 +97,8 @@
     } catch (e) { return !!fallback; }
   }
   function writeBool(key, val) { try { window.localStorage.setItem(key, val ? "true" : "false"); } catch (e) {} }
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
   function has(key, id) { return read(key).indexOf(id) >= 0; }
   function clearKey(key) { write(key, []); }
   function setVal(key, id, on) { var list = read(key), i = list.indexOf(id); if (on && i < 0) list.push(id); if (!on && i >= 0) list.splice(i, 1); write(key, list); }
@@ -80,6 +110,7 @@
   function assetKind(symbol) { symbol = String(symbol || "").toUpperCase(); return symbol === "BTC-USD" || symbol === "ETH-USD" ? "crypto" : "stock"; }
   function ctxLabel(ctx) { return ctx === "portfolio" ? "Held in portfolio" : ctx === "watchlist" ? "On your watchlist" : "Broad market context"; }
   function ctxRank(ctx) { return ctx === "portfolio" ? 3 : ctx === "watchlist" ? 2 : 1; }
+<<<<<<< HEAD
   function betterItem(next, prev) {
     if (!prev) return true;
     if (ctxRank(next.context) !== ctxRank(prev.context)) return ctxRank(next.context) > ctxRank(prev.context);
@@ -97,6 +128,8 @@
     if (!h) return item.id || "";
     return String(item.papertradeSymbol || "N/A").toUpperCase() + "|" + h;
   }
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
 
   function category(article) {
     var symbol = String(article && article.papertrade_symbol ? article.papertrade_symbol : "").toUpperCase();
@@ -138,6 +171,7 @@
     var map = {};
     (items || []).forEach(function (item) {
       if (!item || !item.id) return;
+<<<<<<< HEAD
       var key = duplicateKey(item) || item.id;
       var group = map[key];
       if (!group) {
@@ -156,6 +190,12 @@
       lead.sourceList = src;
       return lead;
     }).sort(function (a, b) {
+=======
+      var cur = map[item.id];
+      if (!cur || (ctxRank(item.context) > ctxRank(cur.context)) || (ctxRank(item.context) === ctxRank(cur.context) && item.trusted && !cur.trusted) || (item.publishedAtMs > cur.publishedAtMs)) map[item.id] = item;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       if (ctxRank(b.context) !== ctxRank(a.context)) return ctxRank(b.context) - ctxRank(a.context);
       if (b.trusted !== a.trusted) return b.trusted ? 1 : -1;
       return b.publishedAtMs - a.publishedAtMs;
@@ -186,13 +226,17 @@
       if (state.filter === "crypto" && item.assetKind !== "crypto") return false;
       if (state.filter === "market" && !(item.category === "Market" || item.context === "market")) return false;
       item.saved = has(SAVED_KEY, item.id);
+<<<<<<< HEAD
       item.read = has(READ_KEY, item.id);
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       return true;
     });
   }
 
   function tag(text, cls) { var el = document.createElement("span"); el.className = "pt-ni-tag" + (cls ? " " + cls : ""); el.textContent = text; return el; }
   function action(text, fn, muted) { var el = document.createElement("button"); el.type = "button"; el.className = "pt-ni-btn" + (muted ? " muted" : ""); el.textContent = text; el.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); fn(); }); return el; }
+<<<<<<< HEAD
   function fillMeta(el, item) {
     clear(el);
     if (!item.read) {
@@ -204,6 +248,8 @@
     }
     el.appendChild(document.createTextNode(item.papertradeSymbol + " | " + item.category + " | " + item.timeAgo));
   }
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
 
   function modal() {
     var wrap = document.createElement("div"), panel = document.createElement("div"), top = document.createElement("div"), left = document.createElement("div");
@@ -228,6 +274,7 @@
   function toolbar(state, scope, rerender, onManageHidden) {
     var bar = document.createElement("div"), left = document.createElement("div"), right = document.createElement("div");
     bar.className = "pt-ni-toolbar"; left.className = "pt-ni-group"; right.className = "pt-ni-group";
+<<<<<<< HEAD
     if (scope === "portfolio") FILTERS.forEach(function (f) {
       var b = document.createElement("button");
       b.type = "button";
@@ -266,6 +313,10 @@
       });
       right.appendChild(b);
     });
+=======
+    if (scope === "portfolio") FILTERS.forEach(function (f) { var b = document.createElement("button"); b.type = "button"; b.className = "pt-ni-chip" + (state.filter === f[0] ? " on" : ""); b.textContent = f[1]; b.addEventListener("click", function () { state.filter = f[0]; rerender(); }); left.appendChild(b); });
+    WINDOWS.forEach(function (w) { var b = document.createElement("button"); b.type = "button"; b.className = "pt-ni-chip" + (state.window === w[0] ? " on" : ""); b.textContent = w[1]; b.addEventListener("click", function () { state.window = w[0]; rerender(); }); right.appendChild(b); });
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     var hiddenCount = read(DISMISSED_KEY).length;
     if (hiddenCount > 0) {
       var manage = document.createElement("button");
@@ -282,10 +333,15 @@
     var box = document.createElement("section"), kick = document.createElement("p"), main = document.createElement("div"), meta = document.createElement("p"), head = document.createElement("h3"), copy = document.createElement("p"), row = document.createElement("div");
     box.className = "pt-ni-feature"; kick.className = "pt-ni-kicker"; kick.textContent = label; main.className = "pt-ni-feature-main"; meta.className = "pt-ni-meta"; head.className = "pt-ni-head"; copy.className = "pt-ni-copy"; row.className = "pt-ni-rowline";
     main.addEventListener("click", function () { openPreview(item, rerender); });
+<<<<<<< HEAD
     fillMeta(meta, item); head.textContent = item.headline; copy.textContent = item.summary;
     row.appendChild(tag(item.source, ""));
     if (item.sourceExtraCount > 0) row.appendChild(tag("+" + item.sourceExtraCount + " sources", "dupe"));
     row.appendChild(tag(item.contextLabel, "ctx")); if (item.trusted) row.appendChild(tag("Trusted", "trust")); if (item.saved) row.appendChild(tag("Saved", "saved"));
+=======
+    meta.textContent = item.papertradeSymbol + " | " + item.category + " | " + item.timeAgo; head.textContent = item.headline; copy.textContent = item.summary;
+    row.appendChild(tag(item.source, "")); row.appendChild(tag(item.contextLabel, "ctx")); if (item.trusted) row.appendChild(tag("Trusted", "trust")); if (item.saved) row.appendChild(tag("Saved", "saved"));
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     row.appendChild(action(item.saved ? "Unsave" : "Save", function () { item.saved = toggleVal(SAVED_KEY, item.id); rerender(); }, false));
     row.appendChild(action("Dismiss", function () { onDismiss(item); }, true));
     row.appendChild(action("Preview", function () { openPreview(item, rerender); }, false));
@@ -296,16 +352,22 @@
     var box = document.createElement("article"), main = document.createElement("div"), meta = document.createElement("p"), head = document.createElement("h4"), copy = document.createElement("p"), row = document.createElement("div"), act = document.createElement("div");
     box.className = "pt-ni-item"; main.className = "pt-ni-item-main"; meta.className = "pt-ni-meta"; head.className = "pt-ni-subhead"; copy.className = "pt-ni-copy-sm"; row.className = "pt-ni-rowline"; act.className = "pt-ni-actions";
     main.addEventListener("click", function () { openPreview(item, rerender); });
+<<<<<<< HEAD
     fillMeta(meta, item); head.textContent = item.headline; copy.textContent = item.summary;
     row.appendChild(tag(item.source, ""));
     if (item.sourceExtraCount > 0) row.appendChild(tag("+" + item.sourceExtraCount + " sources", "dupe"));
     row.appendChild(tag(item.contextLabel, "ctx")); if (item.trusted) row.appendChild(tag("Trusted", "trust")); if (item.saved) row.appendChild(tag("Saved", "saved"));
+=======
+    meta.textContent = item.papertradeSymbol + " | " + item.category + " | " + item.timeAgo; head.textContent = item.headline; copy.textContent = item.summary;
+    row.appendChild(tag(item.source, "")); row.appendChild(tag(item.contextLabel, "ctx")); if (item.trusted) row.appendChild(tag("Trusted", "trust")); if (item.saved) row.appendChild(tag("Saved", "saved"));
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     act.appendChild(action(item.saved ? "Unsave" : "Save", function () { item.saved = toggleVal(SAVED_KEY, item.id); rerender(); }, false));
     act.appendChild(action("Dismiss", function () { onDismiss(item); }, true));
     act.appendChild(action("Preview", function () { openPreview(item, rerender); }, false));
     main.appendChild(meta); main.appendChild(head); main.appendChild(copy); box.appendChild(main); box.appendChild(row); box.appendChild(act); return box;
   }
 
+<<<<<<< HEAD
   function section(title, items, openPreview, rerender, onDismiss, state, sectionKey) {
     if (!items.length) return null;
     var box = document.createElement("section"), t = document.createElement("h3");
@@ -323,6 +385,13 @@
       }, true));
       box.appendChild(controls);
     }
+=======
+  function section(title, items, openPreview, rerender, onDismiss) {
+    if (!items.length) return null;
+    var box = document.createElement("section"), t = document.createElement("h3");
+    box.className = "pt-ni-section"; t.className = "pt-ni-title-sm"; t.textContent = title; box.appendChild(t);
+    items.forEach(function (item) { box.appendChild(itemRow(item, openPreview, rerender, onDismiss)); });
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     return box;
   }
 
@@ -347,12 +416,16 @@
   function renderPortfolio(container, all, state, openPreview, rerender, onDismiss, onManageHidden) {
     clear(container); host(container);
     var list = apply(all, state), root = document.createElement("section");
+<<<<<<< HEAD
     state.unreadCount = list.filter(function (item) { return !item.read; }).length;
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     root.className = "pt-ni-layout"; root.appendChild(toolbar(state, "portfolio", rerender, onManageHidden));
     var flash = dismissNotice(state, rerender);
     if (flash) root.appendChild(flash);
     if (!list.length) { root.appendChild(emptyNote("No stories match the current filters.")); container.appendChild(root); return; }
     root.appendChild(feature(list[0], "Lead Story", openPreview, rerender, onDismiss));
+<<<<<<< HEAD
     if (!state.expanded) {
       if (list.length > 1) root.appendChild(emptyNote((list.length - 1) + " more " + (list.length - 1 === 1 ? "story" : "stories") + ". Click Expand to view all."));
       container.appendChild(root);
@@ -368,24 +441,43 @@
     grid.className = "pt-ni-grid"; right.className = "pt-ni-stack";
     left.appendChild(section(defs[0][0], defs[0][1], openPreview, rerender, onDismiss, state, defs[0][2]));
     defs.slice(1).forEach(function (d) { var sec = section(d[0], d[1], openPreview, rerender, onDismiss, state, d[2]); if (sec) right.appendChild(sec); });
+=======
+    var grouped = sectionSplit(list.slice(1)), defs = [];
+    if (grouped.portfolio.length) defs.push(["Portfolio Impact", grouped.portfolio]);
+    if (grouped.market.length) defs.push(["Market Update", grouped.market]);
+    if (grouped.crypto.length) defs.push(["Crypto Updates", grouped.crypto]);
+    if (!defs.length) { container.appendChild(root); return; }
+    if (defs.length === 1) { root.appendChild(section(defs[0][0], defs[0][1], openPreview, rerender, onDismiss)); container.appendChild(root); return; }
+    var grid = document.createElement("section"), left = document.createElement("section"), right = document.createElement("section");
+    grid.className = "pt-ni-grid"; right.className = "pt-ni-stack";
+    left.appendChild(section(defs[0][0], defs[0][1], openPreview, rerender, onDismiss));
+    defs.slice(1).forEach(function (d) { var sec = section(d[0], d[1], openPreview, rerender, onDismiss); if (sec) right.appendChild(sec); });
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     grid.appendChild(left); if (right.childNodes.length) grid.appendChild(right); root.appendChild(grid); container.appendChild(root);
   }
 
   function renderAsset(container, all, state, symbol, openPreview, rerender, onDismiss, onManageHidden) {
     clear(container); host(container);
     var list = apply(all, state), root = document.createElement("section");
+<<<<<<< HEAD
     state.unreadCount = list.filter(function (item) { return !item.read; }).length;
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     root.className = "pt-ni-asset"; root.appendChild(toolbar(state, "symbol", rerender, onManageHidden));
     var flash = dismissNotice(state, rerender);
     if (flash) root.appendChild(flash);
     if (!list.length) { root.appendChild(emptyNote("No stories match the current time window.")); container.appendChild(root); return; }
     root.appendChild(feature(list[0], "Asset Focus | " + String(symbol || list[0].papertradeSymbol || "ASSET").toUpperCase(), openPreview, rerender, onDismiss));
+<<<<<<< HEAD
     if (!state.expanded) {
       if (list.length > 1) root.appendChild(emptyNote((list.length - 1) + " more " + (list.length - 1 === 1 ? "story" : "stories") + ". Click Expand to view all."));
       container.appendChild(root);
       return;
     }
     if (list.length > 1) root.appendChild(section("Latest Coverage", list.slice(1), openPreview, rerender, onDismiss, state, "latest"));
+=======
+    if (list.length > 1) root.appendChild(section("Latest Coverage", list.slice(1), openPreview, rerender, onDismiss));
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     container.appendChild(root);
   }
 
@@ -442,7 +534,11 @@
     ensureStyles();
     var container = document.getElementById(options.containerId), status = document.getElementById(options.statusId), pop = modal(), hidden = hiddenModal();
     if (!container || !status) return null;
+<<<<<<< HEAD
     var state = { filter: "all", window: "7d", expanded: readBool(EXPANDED_KEY, false), unreadCount: 0, sectionCap: 3, sectionExpanded: {}, lastUpdated: null, articles: [], symbol: null, refreshHandle: null, ageHandle: null, dismissNotice: null, noticeHandle: null };
+=======
+    var state = { filter: "all", window: "7d", lastUpdated: null, articles: [], symbol: null, refreshHandle: null, ageHandle: null, dismissNotice: null, noticeHandle: null };
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
 
     function setStatus(text, err) { status.textContent = text; status.classList.remove("text-danger", "text-success"); status.classList.add(err ? "text-danger" : "text-muted"); }
     function tickStatus() { setStatus("Last Updated | " + freshness(state.lastUpdated), false); }
@@ -512,17 +608,23 @@
     }
 
     function openPreview(item, rerender) {
+<<<<<<< HEAD
       var wasUnread = !has(READ_KEY, item.id);
       if (wasUnread) {
         setVal(READ_KEY, item.id, true);
         item.read = true;
       }
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       clear(pop.actions);
       pop.kicker.textContent = item.papertradeSymbol + " | " + item.category;
       pop.head.textContent = item.headline;
       pop.meta.textContent = [item.source, item.timeAgo, item.contextLabel].join(" | ");
       pop.copy.textContent = item.summary;
+<<<<<<< HEAD
       if (item.sourceExtraCount > 0) pop.actions.appendChild(tag("+" + item.sourceExtraCount + " sources", "dupe"));
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
       if (item.trusted) pop.actions.appendChild(tag("Trusted source", "trust"));
       if (item.saved) pop.actions.appendChild(tag("Saved", "saved"));
       pop.actions.appendChild(tag(item.contextLabel, "ctx"));
@@ -532,7 +634,10 @@
       link.className = "pt-ni-link"; link.href = item.url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Open Full Article";
       pop.actions.appendChild(link);
       pop.wrap.classList.add("open");
+<<<<<<< HEAD
       if (wasUnread) rerender();
+=======
+>>>>>>> fa1ea074e98b27892d5c1b3a26c7d3184d054974
     }
 
     function rerender() {

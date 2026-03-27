@@ -1541,6 +1541,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const priceChange = stock.price_change || {};
     const priceChangeAmount = toNumber(priceChange.amount);
     const priceChangePct = priceChange.percentage;
+    const previousSymbol = state.currentSymbol;
 
     state.currentSymbol = stock.ticker;
     state.livePrice = clampNumber(stock.last_price);
@@ -1600,6 +1601,9 @@ document.addEventListener('DOMContentLoaded', function () {
       assetNewsWidget.load(stock.ticker);
     }
     updateChartTitle();
+    if (assetNewsWidget && stock.ticker && stock.ticker !== previousSymbol) {
+      assetNewsWidget.load(stock.ticker);
+    }
     if (!options || !options.skipChart) {
       return loadChart(stock.ticker, state.currentRange, options);
     }

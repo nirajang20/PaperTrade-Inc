@@ -276,6 +276,34 @@ foreach ($watchlist as $item) {
   .small-box.bg-primary .metric-delta {
     color: rgba(255,255,255,0.85);
   }
+  .small-box.metric-unrealized-box {
+    background: #a56b33;
+    color: #ffffff;
+    border: 1px solid #b9783a;
+  }
+  body.dark-mode .small-box.metric-unrealized-box {
+    background: #875425;
+    color: #ffffff;
+    border-color: #9f6530;
+  }
+  body.dark-mode .small-box.metric-unrealized-box p {
+    color: rgba(255,255,255,0.92);
+  }
+  .small-box.metric-unrealized-box p {
+    color: rgba(255,255,255,0.92);
+  }
+  .small-box.metric-unrealized-box .metric-number.text-success {
+    color: #ffffff !important;
+  }
+  .small-box.metric-unrealized-box .metric-number.text-danger {
+    color: #ffd1d1 !important;
+  }
+  .small-box.metric-unrealized-box .icon > i {
+    color: rgba(255,255,255,0.18) !important;
+  }
+  body.dark-mode .small-box.metric-unrealized-box .icon > i {
+    color: rgba(255,255,255,0.14) !important;
+  }
   .metric-delta.positive { color: #28a745 !important; }
   .metric-delta.negative { color: #dc3545 !important; }
   .timeline-controls {
@@ -346,7 +374,7 @@ foreach ($watchlist as $item) {
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
         <?php $pnlClass = $unrealizedPnL >= 0 ? "text-success" : "text-danger"; ?>
-        <div class="small-box bg-light">
+        <div class="small-box metric-unrealized-box">
           <div class="inner">
             <h3
               id="metricUnrealized"
@@ -362,7 +390,7 @@ foreach ($watchlist as $item) {
             <div class="metric-delta small">&nbsp;</div>
             <p class="mb-0">Unrealized P&amp;L</p>
           </div>
-          <div class="icon"><i class="fas fa-chart-line text-muted"></i></div>
+          <div class="icon"><i class="fas fa-chart-line"></i></div>
         </div>
       </div>
       <div class="col-xl-3 col-md-6 mb-3">
@@ -1122,17 +1150,40 @@ document.addEventListener("DOMContentLoaded", function () {
         const dt = new Date(timestamp);
         lastUpdateEl.textContent = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       }
-    } catch (error) {
+        } catch (error) {
       console.error("Unable to refresh portfolio worth:", error);
-      if (lastUpdateEl) {
-        lastUpdateEl.textContent = error.status === 401 ? "Session expired" : "Error";
-      }
-      if (window.toastr) {
-        window.toastr.error("Live portfolio update failed" + (error.message ? ": " + error.message : ""));
-      }
+
+      const isLoggingOut =
+        window.__loggingOut === true ||
+        (function () {
+          try {
+            return sessionStorage.getItem("papertrade_logging_out") === "1";
+          } catch (e) {
+            return false;
+          }
+        })();
+
       if (error.status === 401) {
         clearPollTimer();
+
+        if (lastUpdateEl) {
+          lastUpdateEl.textContent = "Session expired";
+        }
+
+        // do not show scary error toast during intentional logout
+        if (isLoggingOut) {
+          return;
+        }
+
         return;
+      }
+
+      if (lastUpdateEl) {
+        lastUpdateEl.textContent = "Error";
+      }
+
+      if (window.toastr) {
+        window.toastr.error("Live portfolio update failed" + (error.message ? ": " + error.message : ""));
       }
     } finally {
       scheduleNextPoll();
@@ -1176,6 +1227,10 @@ document.addEventListener("DOMContentLoaded", function () {
   if (performanceChartEl) {
     ensureChart();
     refreshPortfolioWorth();
+  }
+
+  if (portfolioNewsWidget) {
+    portfolioNewsWidget.load();
   }
 
   if (allocationCtx && allocationSeries.length) {
