@@ -63,6 +63,16 @@ https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
 
 <?php include 'fetch.php'; ?>
 <?php
+$navAvatarFile = "avatar.png";
+if (!empty($active_user['avatar'])) {
+  $candidateAvatar = basename((string) $active_user['avatar']);
+  $candidatePath = PATH_BASE . "dist" . DIRECTORY_SEPARATOR . "img" . DIRECTORY_SEPARATOR . $candidateAvatar;
+  if ($candidateAvatar !== "" && is_file($candidatePath)) {
+    $navAvatarFile = $candidateAvatar;
+  }
+}
+$navAvatarUrl = URL_HOST . "dist/img/" . rawurlencode($navAvatarFile);
+
 $navNotifications = [];
 $navNotificationsTotal = 0;
 $navNotificationsUnread = 0;
@@ -513,7 +523,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
           <!-- User Profile Dropdown -->
           <li class="nav-item dropdown">
             <a class="nav-link" data-toggle="dropdown" href="#">
-              <img src="<?= URL_HOST ?>dist/img/<?= $active_user['avatar'] ?>" alt="User" class="img-size-32 img-circle">
+              <img src="<?= $navAvatarUrl ?>" alt="User" class="img-size-32 img-circle">
             </a>
             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
               <div class="dropdown-header text-center">
@@ -553,7 +563,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
           <!-- User Panel -->
           <div class="user-panel mt-3 pb-3 mb-3 d-flex align-items-center border-bottom border-secondary">
             <div class="image">
-              <img src="<?= URL_HOST ?>dist/img/<?= $active_user['avatar'] ?>"
+              <img src="<?= $navAvatarUrl ?>"
                 class="img-circle elevation-3 border border-success" alt="User Image">
             </div>
             <div class="info">
@@ -601,6 +611,10 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                   <li class="nav-item"><a href="<?= URL_HOST ?>trading/transactions.php" class="nav-link"><i
                         class="fas fa-history nav-icon text-warning"></i>
                       <p>My Transactions</p>
+                    </a></li>
+                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/limit-lost.php" class="nav-link"><i
+                        class="fas fa-shield-alt nav-icon text-warning"></i>
+                      <p>Limit Lost</p>
                     </a></li>
                 </ul>
               </li>
