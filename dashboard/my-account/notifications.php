@@ -150,6 +150,10 @@ if ($jsonNotifications === false) {
 ?>
 
 <style>
+  .notifications-summary > [class*="col-"] {
+    display: flex;
+  }
+
   .notifications-summary .card {
     border: 0;
     border-left: 4px solid transparent;
@@ -157,6 +161,8 @@ if ($jsonNotifications === false) {
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     min-height: 120px;
+    width: 100%;
+    height: 100%;
   }
 
   .notifications-summary .card:hover {

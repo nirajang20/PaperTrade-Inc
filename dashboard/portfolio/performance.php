@@ -16,6 +16,20 @@ if (empty($active_user) || !isset($active_user["user_id"])) {
 
 $userId = (int) $active_user["user_id"];
 
+if (ActivityLogger::shouldLogSession("portfolio.performance_viewed.{$userId}", 300)) {
+  ActivityLogger::log(
+    $conn,
+    $userId,
+    'portfolio.performance_viewed',
+    'Viewed performance',
+    'portfolio/performance',
+    'Success',
+    'Performance view was opened.',
+    [],
+    ['page' => 'portfolio/performance']
+  );
+}
+
 $holdings = [];
 $holdingsCostMap = [];
 $totals = [

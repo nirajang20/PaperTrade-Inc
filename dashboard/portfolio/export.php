@@ -5,59 +5,9 @@ $_ISADMIN = isset($_SESSION['user']);
 require PATH_LIB . "fetch.php";
 
 if (!function_exists('recordActivity')) {
-  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success')
+  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success', $eventType = 'activity.generic', $metadata = [])
   {
-    if (!$conn || !$userId) {
-      return;
-    }
-
-    $allowedStatuses = ['Success', 'Pending', 'Failed', 'Warning'];
-    if (!in_array($status, $allowedStatuses, true)) {
-      $status = 'Success';
-    }
-
-    $actionTitle = trim((string) $actionTitle);
-    $pageName = trim((string) $pageName);
-    $notesValue = $notes !== null ? trim((string) $notes) : null;
-    if ($notesValue === '') {
-      $notesValue = null;
-    }
-
-    if ($actionTitle === '') {
-      $actionTitle = 'Activity';
-    }
-    if ($pageName === '') {
-      $pageName = 'dashboard/portfolio/export.php';
-    }
-
-    $device = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 120);
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
-    $ipv4 = null;
-    $ipv6 = null;
-    if ($ipAddress) {
-      if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-        $ipv4 = $ipAddress;
-      } elseif (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-        $ipv6 = $ipAddress;
-      }
-    }
-
-    $stmt = $conn->prepare("INSERT INTO activities (action_title, page_name, notes, status, device, ipv4, ipv6, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    if ($stmt) {
-      $stmt->bind_param(
-        "sssssssi",
-        $actionTitle,
-        $pageName,
-        $notesValue,
-        $status,
-        $device,
-        $ipv4,
-        $ipv6,
-        $userId
-      );
-      $stmt->execute();
-      $stmt->close();
-    }
+    ActivityLogger::log($conn, (int)$userId, (string)$eventType, (string)$actionTitle, (string)$pageName, (string)$status, $notes, (array)$metadata, ['page' => $pageName]);
   }
 }
 
@@ -91,25 +41,33 @@ function sanitize_symbol($symbol) {
 $activityStatus = null;
 $activityNotes = null;
 $activityLogged = false;
+$activityTitle = 'Exported portfolio CSV';
+$activityEventType = 'portfolio.export_csv';
+$activityMetadata = [];
 $activeUserId = isset($active_user['user_id']) ? (int) $active_user['user_id'] : (isset($_SESSION['user']['user_id']) ? (int) $_SESSION['user']['user_id'] : null);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["export_submit"])) {
   $symbolInput = sanitize_symbol($_POST["symbol"] ?? "");
   $period = $_POST["period"] ?? $defaultPeriod;
   $interval = $_POST["interval"] ?? $defaultInterval;
+  $activityMetadata = [
+    'symbol' => $symbolInput ?: null,
+    'period' => $period,
+    'interval' => $interval
+  ];
 
   if ($symbolInput === "") {
     $errorMessage = "Enter a ticker symbol before exporting.";
     $activityStatus = 'Failed';
-    $activityNotes = 'Export failed: missing symbol input.';
+    $activityNotes = 'Portfolio export failed.';
   } elseif (!array_key_exists($period, $periodOptions)) {
     $errorMessage = "Invalid period selected.";
     $activityStatus = 'Failed';
-    $activityNotes = 'Export failed: invalid period parameter.';
+    $activityNotes = 'Portfolio export failed.';
   } elseif (!array_key_exists($interval, $intervalOptions)) {
     $errorMessage = "Invalid interval selected.";
     $activityStatus = 'Failed';
-    $activityNotes = 'Export failed: invalid interval parameter.';
+    $activityNotes = 'Portfolio export failed.';
   } else {
     $apiUrl = sprintf(
       "https://api.paper-trade.org/chart-history?symbol=%s&period=%s&interval=%s",
@@ -122,13 +80,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["export_submit"])) {
     if ($response === false) {
       $errorMessage = "Unable to contact the export API. Try again later.";
       $activityStatus = 'Failed';
-      $activityNotes = sprintf('Export failed: API request error for %s.', $symbolInput);
+      $activityNotes = 'Portfolio export failed.';
     } else {
       $payload = json_decode($response, true);
       if (!$payload || !isset($payload["data"]) || !is_array($payload["data"]) || empty($payload["data"])) {
         $errorMessage = "No chart data returned for the requested symbol.";
         $activityStatus = 'Failed';
-        $activityNotes = sprintf('Export failed: no data returned for %s.', $symbolInput);
+        $activityNotes = 'Portfolio export failed.';
       } else {
         $filename = sprintf(
           "%s_%s_%s.csv",
@@ -138,19 +96,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["export_submit"])) {
         );
         if ($activeUserId) {
           $activityStatus = 'Success';
-          $activityNotes = sprintf(
-            'Exported %s data (%s period, %s interval).',
-            $symbolInput,
-            $periodOptions[$period] ?? $period,
-            $intervalOptions[$interval] ?? $interval
-          );
+          $activityNotes = 'Portfolio export completed.';
           recordActivity(
             $conn,
             $activeUserId,
-            'Export CSV',
+            $activityTitle,
             'portfolio/export',
             $activityNotes,
-            $activityStatus
+            $activityStatus,
+            $activityEventType,
+            $activityMetadata
           );
           $activityLogged = true;
         }
@@ -181,10 +136,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["export_submit"])) {
     recordActivity(
       $conn,
       $activeUserId,
-      'Export CSV',
+      $activityTitle,
       'portfolio/export',
       $activityNotes,
-      $activityStatus
+      $activityStatus,
+      $activityEventType,
+      $activityMetadata
     );
     $activityLogged = true;
   }

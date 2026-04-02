@@ -15,6 +15,21 @@ if (empty($active_user) || !isset($active_user["user_id"])) {
 }
 
 $userId = (int) $active_user["user_id"];
+
+if (ActivityLogger::shouldLogSession("portfolio.holdings_viewed.{$userId}", 300)) {
+  ActivityLogger::log(
+    $conn,
+    $userId,
+    'portfolio.holdings_viewed',
+    'Viewed holdings',
+    'portfolio/my-holdings',
+    'Success',
+    'Holdings view was opened.',
+    [],
+    ['page' => 'portfolio/my-holdings']
+  );
+}
+
 $holdings = [];
 $totals = [
   "positions" => 0,

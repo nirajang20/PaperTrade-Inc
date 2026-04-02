@@ -23,6 +23,7 @@ define("URL_PUBLIC", URL_HOST . "public/");
 // (E) FILE PATHS
 define("PATH_LIB", __DIR__ . DIRECTORY_SEPARATOR);
 define("PATH_BASE", dirname(PATH_LIB) . DIRECTORY_SEPARATOR);
+require_once PATH_LIB . "ActivityLogger.php";
 
 // (F) SESSION
 session_start();

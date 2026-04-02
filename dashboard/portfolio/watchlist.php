@@ -2,59 +2,9 @@
 require "../lib/Core.php";
 
 if (!function_exists('recordActivity')) {
-  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success')
+  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success', $eventType = 'activity.generic', $metadata = [])
   {
-    if (!$conn || !$userId) {
-      return;
-    }
-
-    $allowedStatuses = ['Success', 'Pending', 'Failed', 'Warning'];
-    if (!in_array($status, $allowedStatuses, true)) {
-      $status = 'Success';
-    }
-
-    $actionTitle = trim((string) $actionTitle);
-    $pageName = trim((string) $pageName);
-    $notesValue = $notes !== null ? trim((string) $notes) : null;
-    if ($notesValue === '') {
-      $notesValue = null;
-    }
-
-    if ($actionTitle === '') {
-      $actionTitle = 'Activity';
-    }
-    if ($pageName === '') {
-      $pageName = 'portfolio/watchlist';
-    }
-
-    $device = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 120);
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
-    $ipv4 = null;
-    $ipv6 = null;
-    if ($ipAddress) {
-      if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-        $ipv4 = $ipAddress;
-      } elseif (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-        $ipv6 = $ipAddress;
-      }
-    }
-
-    $stmt = $conn->prepare("INSERT INTO activities (action_title, page_name, notes, status, device, ipv4, ipv6, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    if ($stmt) {
-      $stmt->bind_param(
-        "sssssssi",
-        $actionTitle,
-        $pageName,
-        $notesValue,
-        $status,
-        $device,
-        $ipv4,
-        $ipv6,
-        $userId
-      );
-      $stmt->execute();
-      $stmt->close();
-    }
+    ActivityLogger::log($conn, (int)$userId, (string)$eventType, (string)$actionTitle, (string)$pageName, (string)$status, $notes, (array)$metadata, ['page' => $pageName]);
   }
 }
 
@@ -81,9 +31,34 @@ $alert = [
   "message" => null
 ];
 
+if (!function_exists('watchlistUndoToken')) {
+  function watchlistUndoToken()
+  {
+    try {
+      return bin2hex(random_bytes(16));
+    } catch (Exception $e) {
+      return sha1(uniqid('undo', true));
+    }
+  }
+}
+
 $activityLogged = false;
 $activityStatus = null;
 $activityNotes = null;
+$activityTitle = null;
+$activityEventType = 'activity.generic';
+$activityMetadata = [];
+$undoFlash = null;
+
+if (!empty($_SESSION['watchlist_undo']) && is_array($_SESSION['watchlist_undo'])) {
+  $candidateUndo = $_SESSION['watchlist_undo'];
+  $expiresAt = (int)($candidateUndo['expires_at'] ?? 0);
+  if ($expiresAt > time()) {
+    $undoFlash = $candidateUndo;
+  } else {
+    unset($_SESSION['watchlist_undo']);
+  }
+}
 
 function sanitize_symbol($symbol) {
   $symbol = strtoupper(trim($symbol));
@@ -93,9 +68,77 @@ function sanitize_symbol($symbol) {
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $action = $_POST["action"] ?? "";
 
-  if ($action === "add") {
+  if ($action === "undo") {
+    $token = trim((string)($_POST["undo_token"] ?? ""));
+    $undoData = $_SESSION['watchlist_undo'] ?? null;
+    $validUndo = is_array($undoData)
+      && !empty($undoData['token'])
+      && hash_equals((string)$undoData['token'], $token)
+      && (int)($undoData['expires_at'] ?? 0) > time()
+      && (int)($undoData['user_id'] ?? 0) === $userId;
+
+    if (!$validUndo) {
+      $alert = [
+        "type" => "error",
+        "title" => "Undo Expired",
+        "message" => "Undo is no longer available for this watchlist action."
+      ];
+      unset($_SESSION['watchlist_undo']);
+    } else {
+      $undoAction = (string)($undoData['action'] ?? '');
+      if ($undoAction === 'add') {
+        $watchlistId = (int)($undoData['watchlist_id'] ?? 0);
+        $symbol = sanitize_symbol($undoData['symbol'] ?? '');
+        $stmtUndo = $conn->prepare("DELETE FROM watchlist WHERE watchlist_id = ? AND user_id = ?");
+        if ($stmtUndo) {
+          $stmtUndo->bind_param("ii", $watchlistId, $userId);
+          $ok = $stmtUndo->execute() && $stmtUndo->affected_rows > 0;
+          $stmtUndo->close();
+          if ($ok) {
+            $alert = [
+              "type" => "success",
+              "title" => "Undo Complete",
+              "message" => "Watchlist add was undone."
+            ];
+            $activityStatus = 'Success';
+            $activityTitle = $symbol !== '' ? "Removed {$symbol} from watchlist" : 'Removed stock from watchlist';
+            $activityNotes = 'Watchlist item removed.';
+            $activityEventType = 'watchlist.remove';
+            $activityMetadata = ['symbol' => $symbol ?: null, 'source' => 'undo'];
+          }
+        }
+      } elseif ($undoAction === 'delete') {
+        $symbolId = (int)($undoData['symbol_id'] ?? 0);
+        $symbol = sanitize_symbol($undoData['symbol'] ?? '');
+        $note = isset($undoData['note']) ? trim((string)$undoData['note']) : '';
+        $stmtUndo = $conn->prepare("INSERT INTO watchlist (user_id, symbol_id, note) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE note = VALUES(note)");
+        if ($stmtUndo) {
+          $noteParam = $note !== '' ? $note : null;
+          $stmtUndo->bind_param("iis", $userId, $symbolId, $noteParam);
+          $ok = $stmtUndo->execute();
+          $stmtUndo->close();
+          if ($ok) {
+            $alert = [
+              "type" => "success",
+              "title" => "Undo Complete",
+              "message" => "Watchlist removal was undone."
+            ];
+            $activityStatus = 'Success';
+            $activityTitle = $symbol !== '' ? "Added {$symbol} to watchlist" : 'Added stock to watchlist';
+            $activityNotes = 'Watchlist item added.';
+            $activityEventType = 'watchlist.add';
+            $activityMetadata = ['symbol' => $symbol ?: null, 'source' => 'undo'];
+          }
+        }
+      }
+      unset($_SESSION['watchlist_undo']);
+    }
+  } elseif ($action === "add") {
     $symbolInput = sanitize_symbol($_POST["symbol"] ?? "");
     $noteInput = trim($_POST["note"] ?? "");
+    $activityTitle = $symbolInput !== '' ? "Added {$symbolInput} to watchlist" : 'Added stock to watchlist';
+    $activityEventType = 'watchlist.add';
+    $activityMetadata = ['symbol' => $symbolInput ?: null];
 
     if ($symbolInput === "") {
       $alert = [
@@ -104,7 +147,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         "message" => "Please enter a valid ticker symbol before adding."
       ];
       $activityStatus = 'Failed';
-      $activityNotes = 'Watchlist add failed: missing symbol input.';
+      $activityNotes = 'Watchlist update failed.';
     } else {
       $symbolId = null;
       $stmtSymbol = $conn->prepare("SELECT id FROM available_trade WHERE symbol = ?");
@@ -127,7 +170,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           $stmtInsertSymbol->close();
         } else {
           $activityStatus = 'Failed';
-          $activityNotes = "Watchlist add failed: unable to prepare symbol insert.";
+          $activityNotes = 'Watchlist update failed.';
         }
       }
 
@@ -143,7 +186,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               "message" => "{$symbolInput} is now being tracked."
             ];
             $activityStatus = 'Success';
-            $activityNotes = sprintf('Added %s to watchlist.', $symbolInput);
+            $activityNotes = 'Watchlist item added.';
+
+            if ($stmtWatch->affected_rows === 1) {
+              $createdWatchlistId = 0;
+              $stmtFind = $conn->prepare("SELECT watchlist_id FROM watchlist WHERE user_id = ? AND symbol_id = ? LIMIT 1");
+              if ($stmtFind) {
+                $stmtFind->bind_param("ii", $userId, $symbolId);
+                if ($stmtFind->execute()) {
+                  $stmtFind->bind_result($createdWatchlistId);
+                  $stmtFind->fetch();
+                }
+                $stmtFind->close();
+              }
+              if ($createdWatchlistId > 0) {
+                $_SESSION['watchlist_undo'] = [
+                  'token' => watchlistUndoToken(),
+                  'expires_at' => time() + 10,
+                  'user_id' => $userId,
+                  'action' => 'add',
+                  'watchlist_id' => $createdWatchlistId,
+                  'symbol' => $symbolInput,
+                ];
+              }
+            }
           } else {
             $alert = [
               "type" => "error",
@@ -151,12 +217,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
               "message" => "Unable to add the selected symbol. Please try again."
             ];
             $activityStatus = 'Failed';
-            $activityNotes = sprintf('Watchlist add failed for %s: database error.', $symbolInput);
+            $activityNotes = 'Watchlist update failed.';
           }
           $stmtWatch->close();
         } else {
           $activityStatus = 'Failed';
-          $activityNotes = sprintf('Watchlist add failed for %s: unable to prepare statement.', $symbolInput ?: 'N/A');
+          $activityNotes = 'Watchlist update failed.';
         }
       } else {
         $alert = [
@@ -166,12 +232,37 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         ];
         if (!$activityStatus) {
           $activityStatus = 'Failed';
-          $activityNotes = sprintf('Watchlist add failed: could not register symbol %s.', $symbolInput ?: 'N/A');
+          $activityNotes = 'Watchlist update failed.';
         }
       }
     }
   } elseif ($action === "delete") {
     $watchlistId = isset($_POST["watchlist_id"]) ? (int) $_POST["watchlist_id"] : 0;
+    $watchSymbol = '';
+    $watchSymbolId = 0;
+    $watchNote = '';
+    if ($watchlistId > 0) {
+      $stmtSymbol = $conn->prepare("
+        SELECT at.symbol, w.symbol_id, w.note
+        FROM watchlist w
+        INNER JOIN available_trade at ON at.id = w.symbol_id
+        WHERE w.watchlist_id = ? AND w.user_id = ?
+        LIMIT 1
+      ");
+      if ($stmtSymbol) {
+        $stmtSymbol->bind_param("ii", $watchlistId, $userId);
+        if ($stmtSymbol->execute()) {
+          $stmtSymbol->bind_result($watchSymbol, $watchSymbolId, $watchNote);
+          $stmtSymbol->fetch();
+        }
+        $stmtSymbol->close();
+      }
+    }
+    $watchSymbol = sanitize_symbol($watchSymbol);
+    $activityTitle = $watchSymbol !== '' ? "Removed {$watchSymbol} from watchlist" : 'Removed stock from watchlist';
+    $activityEventType = 'watchlist.remove';
+    $activityMetadata = ['symbol' => $watchSymbol ?: null, 'watchlist_id' => $watchlistId];
+
     if ($watchlistId > 0) {
       $stmtDelete = $conn->prepare("DELETE FROM watchlist WHERE watchlist_id = ? AND user_id = ?");
       if ($stmtDelete) {
@@ -183,7 +274,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "message" => "Symbol removed from your watchlist."
           ];
           $activityStatus = 'Success';
-          $activityNotes = sprintf('Removed watchlist entry #%d.', $watchlistId);
+          $activityNotes = 'Watchlist item removed.';
+          if ($watchSymbolId > 0) {
+            $_SESSION['watchlist_undo'] = [
+              'token' => watchlistUndoToken(),
+              'expires_at' => time() + 10,
+              'user_id' => $userId,
+              'action' => 'delete',
+              'symbol_id' => (int)$watchSymbolId,
+              'symbol' => $watchSymbol,
+              'note' => $watchNote,
+            ];
+          }
         } else {
           $alert = [
             "type" => "error",
@@ -191,16 +293,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             "message" => "Unable to remove the selected item."
           ];
           $activityStatus = 'Failed';
-          $activityNotes = sprintf('Watchlist delete failed for entry #%d.', $watchlistId);
+          $activityNotes = 'Watchlist update failed.';
         }
         $stmtDelete->close();
       } else {
         $activityStatus = 'Failed';
-        $activityNotes = sprintf('Watchlist delete failed for entry #%d: unable to prepare statement.', $watchlistId);
+        $activityNotes = 'Watchlist update failed.';
       }
     } else {
       $activityStatus = 'Failed';
-      $activityNotes = 'Watchlist delete failed: invalid identifier supplied.';
+      $activityNotes = 'Watchlist update failed.';
     }
   }
 
@@ -208,12 +310,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     recordActivity(
       $conn,
       $userId,
-      'Watchlist Update',
+      $activityTitle ?: 'Watchlist update',
       'portfolio/watchlist',
       $activityNotes,
-      $activityStatus
+      $activityStatus,
+      $activityEventType,
+      $activityMetadata
     );
     $activityLogged = true;
+  }
+
+  if (!empty($_SESSION['watchlist_undo']) && is_array($_SESSION['watchlist_undo'])) {
+    $expiresAt = (int)($_SESSION['watchlist_undo']['expires_at'] ?? 0);
+    if ($expiresAt > time()) {
+      $undoFlash = $_SESSION['watchlist_undo'];
+    }
   }
 }
 
@@ -301,6 +412,23 @@ foreach ($watchlist as $entry) {
         <span class="badge badge-info badge-pill px-3 py-2"><?=number_format($totalTracked); ?> symbols tracked</span>
       </div>
     </div>
+
+    <?php if (!empty($undoFlash) && !empty($undoFlash['token'])): ?>
+      <?php $undoSeconds = max(0, (int)$undoFlash['expires_at'] - time()); ?>
+      <div class="alert alert-light border d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3" id="undoBanner" data-expire-seconds="<?= (int)$undoSeconds; ?>">
+        <div class="mb-2 mb-md-0">
+          <strong>Quick undo available.</strong>
+          <span class="text-muted">This will expire in <span id="undoCountdown"><?= (int)$undoSeconds; ?></span>s.</span>
+        </div>
+        <form method="post" class="mb-0">
+          <input type="hidden" name="action" value="undo">
+          <input type="hidden" name="undo_token" value="<?= htmlspecialchars((string)$undoFlash['token']); ?>">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-undo mr-1"></i>Undo
+          </button>
+        </form>
+      </div>
+    <?php endif; ?>
 
     <div class="row">
       <div class="col-lg-5">
@@ -455,6 +583,21 @@ foreach ($watchlist as $entry) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  const undoBanner = document.getElementById('undoBanner');
+  const undoCountdown = document.getElementById('undoCountdown');
+  if (undoBanner && undoCountdown) {
+    let seconds = parseInt(undoBanner.getAttribute('data-expire-seconds') || '0', 10);
+    const timer = setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) {
+        clearInterval(timer);
+        undoBanner.remove();
+        return;
+      }
+      undoCountdown.textContent = String(seconds);
+    }, 1000);
+  }
+
   const removeButtons = document.querySelectorAll('.watchlist-remove-btn');
 
   removeButtons.forEach(function (button) {

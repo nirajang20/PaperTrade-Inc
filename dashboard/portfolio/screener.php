@@ -38,6 +38,19 @@ foreach ($curatedUniverse as $item) {
 $curatedUniverse = array_values($uniqueCurated);
 
 $userId = isset($active_user["user_id"]) ? (int) $active_user["user_id"] : 0;
+if ($conn && $userId > 0 && ActivityLogger::shouldLogSession("portfolio.screener_run.{$userId}", 300)) {
+  ActivityLogger::log(
+    $conn,
+    $userId,
+    'portfolio.screener_run',
+    'Ran stock screener',
+    'portfolio/screener',
+    'Success',
+    'Stock screener was opened.',
+    [],
+    ['page' => 'portfolio/screener']
+  );
+}
 ?>
 
 <style>

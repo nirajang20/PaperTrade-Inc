@@ -10,6 +10,20 @@ if ($showWelcomeToast) {
 $userId = isset($active_user['user_id']) ? (int) $active_user['user_id'] : 0;
 $cashBalance = isset($active_user['user_balance']) ? (float) $active_user['user_balance'] : 0.0;
 
+if ($conn && $userId > 0 && ActivityLogger::shouldLogSession("dashboard.opened.{$userId}", 600)) {
+  ActivityLogger::log(
+    $conn,
+    $userId,
+    'dashboard.opened',
+    'Viewed dashboard',
+    'dashboard/index',
+    'Success',
+    'Dashboard was opened.',
+    [],
+    ['page' => 'dashboard/index']
+  );
+}
+
 $formatCurrency = function ($value) {
   $value = (float) $value;
   $symbol = $value < 0 ? "-$" : "$";
@@ -277,14 +291,14 @@ foreach ($watchlist as $item) {
     color: rgba(255,255,255,0.85);
   }
   .small-box.metric-unrealized-box {
-    background: #a56b33;
+    background: #2f3e4d;
     color: #ffffff;
-    border: 1px solid #b9783a;
+    border: 1px solid #415567;
   }
   body.dark-mode .small-box.metric-unrealized-box {
-    background: #875425;
+    background: #253342;
     color: #ffffff;
-    border-color: #9f6530;
+    border-color: #3b4c5d;
   }
   body.dark-mode .small-box.metric-unrealized-box p {
     color: rgba(255,255,255,0.92);
@@ -296,7 +310,7 @@ foreach ($watchlist as $item) {
     color: #ffffff !important;
   }
   .small-box.metric-unrealized-box .metric-number.text-danger {
-    color: #ffd1d1 !important;
+    color: #ff4d4f !important;
   }
   .small-box.metric-unrealized-box .icon > i {
     color: rgba(255,255,255,0.18) !important;
@@ -693,23 +707,63 @@ foreach ($watchlist as $item) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?= URL_PUBLIC ?>news-engine.js?v=<?= filemtime(PATH_BASE . 'public/news-engine.js') ?>"></script>
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+// News bootstrap is isolated so Market News still loads even if later dashboard JS fails.
+(function bootstrapPortfolioNewsWidget() {
+  if (window.__portfolioNewsBootstrapped) return;
+  if (!window.PaperTradeNews || typeof window.PaperTradeNews.createWidget !== "function") return;
+  try {
+    const portfolioNewsHoldings = <?=json_encode(array_values(array_unique($holdingsSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    const portfolioNewsWatchlist = <?=json_encode(array_values(array_unique($watchlistSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    const widget = window.PaperTradeNews.createWidget({
+      endpoint: new URL("news-proxy.php", window.location.href).toString(),
+      containerId: "portfolioNewsList",
+      statusId: "portfolioNewsStatus",
+      scope: "portfolio",
+      portfolioSymbols: portfolioNewsHoldings,
+      watchlistSymbols: portfolioNewsWatchlist,
+      marketContextSymbol: "^GSPC",
+      autoRefreshMs: 180000,
+      emptyMessage: "No recent news for your current holdings.",
+      loadingMessage: "Loading portfolio news...",
+      errorMessage: "Unable to load portfolio news right now."
+    });
+    window.__portfolioNewsWidget = widget;
+    window.__portfolioNewsBootstrapped = true;
+    if (widget && typeof widget.load === "function") {
+      widget.load();
+      window.__portfolioNewsLoaded = true;
+    }
+  } catch (error) {
+    console.error("Market News bootstrap failed:", error);
+  }
+})();
+</script>
+<script>
+(function initDashboardPage() {
   const allocationSeries = <?=json_encode($allocationSeries); ?>;
   const portfolioNewsHoldings = <?=json_encode(array_values(array_unique($holdingsSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
   const portfolioNewsWatchlist = <?=json_encode(array_values(array_unique($watchlistSymbols)), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
-  const portfolioNewsWidget = window.PaperTradeNews && window.PaperTradeNews.createWidget({
-    endpoint: new URL("news-proxy.php", window.location.href).toString(),
-    containerId: "portfolioNewsList",
-    statusId: "portfolioNewsStatus",
-    scope: "portfolio",
-    portfolioSymbols: portfolioNewsHoldings,
-    watchlistSymbols: portfolioNewsWatchlist,
-    marketContextSymbol: "^GSPC",
-    autoRefreshMs: 180000,
-    emptyMessage: "No recent news for your current holdings.",
-    loadingMessage: "Loading portfolio news...",
-    errorMessage: "Unable to load portfolio news right now."
-  });
+  let portfolioNewsWidget = window.__portfolioNewsWidget || null;
+  try {
+    portfolioNewsWidget = portfolioNewsWidget || (window.PaperTradeNews && typeof window.PaperTradeNews.createWidget === "function"
+      ? window.PaperTradeNews.createWidget({
+          endpoint: new URL("news-proxy.php", window.location.href).toString(),
+          containerId: "portfolioNewsList",
+          statusId: "portfolioNewsStatus",
+          scope: "portfolio",
+          portfolioSymbols: portfolioNewsHoldings,
+          watchlistSymbols: portfolioNewsWatchlist,
+          marketContextSymbol: "^GSPC",
+          autoRefreshMs: 180000,
+          emptyMessage: "No recent news for your current holdings.",
+          loadingMessage: "Loading portfolio news...",
+          errorMessage: "Unable to load portfolio news right now."
+        })
+      : null);
+    window.__portfolioNewsWidget = portfolioNewsWidget;
+  } catch (error) {
+    console.error("Unable to initialize Market News widget:", error);
+  }
 
   const performanceChartEl = document.getElementById("performanceChart");
   const allocationCtx = document.getElementById("allocationChart");
@@ -1191,8 +1245,9 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   bootstrapAnimatedNumbers();
-  if (portfolioNewsWidget) {
+  if (portfolioNewsWidget && !window.__portfolioNewsLoaded) {
     portfolioNewsWidget.load();
+    window.__portfolioNewsLoaded = true;
   }
   updateLiveStatusUi();
   updateRangeLabel();
@@ -1229,8 +1284,9 @@ document.addEventListener("DOMContentLoaded", function () {
     refreshPortfolioWorth();
   }
 
-  if (portfolioNewsWidget) {
+  if (portfolioNewsWidget && !window.__portfolioNewsLoaded) {
     portfolioNewsWidget.load();
+    window.__portfolioNewsLoaded = true;
   }
 
   if (allocationCtx && allocationSeries.length) {
@@ -1266,7 +1322,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   window.addEventListener("beforeunload", clearPollTimer);
-});
+})();
 </script>
 
 <?php require PATH_LIB . "PAGE-bottom.php"; ?>

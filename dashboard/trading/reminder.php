@@ -1,7 +1,28 @@
 <?php
 session_start();
 require "../lib/Core.php";
-$current_user_id = $_SESSION['user_id'] ?? 1;
+$current_user_id = isset($_SESSION['user']['user_id'])
+    ? (int)$_SESSION['user']['user_id']
+    : (isset($_SESSION['user_id'])
+        ? (int)$_SESSION['user_id']
+        : (isset($active_user['user_id']) ? (int)$active_user['user_id'] : 1));
+
+if (!function_exists('reminderRecordActivity')) {
+    function reminderRecordActivity($conn, $userId, $actionTitle, $status = 'Success', $notes = null, $eventType = 'activity.generic', $metadata = [])
+    {
+        ActivityLogger::log(
+            $conn,
+            (int)$userId,
+            (string)$eventType,
+            (string)$actionTitle,
+            'trading/reminder',
+            (string)$status,
+            $notes,
+            (array)$metadata,
+            ['page' => 'trading/reminder']
+        );
+    }
+}
 
 /* ============================
    HANDLE DRAG UPDATE (AJAX)
@@ -24,6 +45,15 @@ if (isset($_POST["drag_update"])) {
     }
 
     $conn->query("UPDATE reminders SET remind_time='$time', status='Pending' WHERE id=$id AND user_id=$current_user_id");
+    reminderRecordActivity(
+        $conn,
+        (int)$current_user_id,
+        'Updated reminder',
+        'Success',
+        'Reminder was rescheduled.',
+        'trading.reminder_updated',
+        ['reminder_id' => $id, 'remind_time' => $time]
+    );
     echo json_encode(["status" => "success"]);
     exit;
 }
@@ -87,6 +117,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_reminder"])) {
         INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
         VALUES ($current_user_id,'$title','$remind_time','$category','$description','Pending',$recurring)
     ");
+    reminderRecordActivity(
+        $conn,
+        (int)$current_user_id,
+        'Created reminder',
+        'Success',
+        'Reminder was created.',
+        'trading.reminder_created',
+        ['title' => $title, 'category' => $category, 'remind_time' => $remind_time]
+    );
 
     $_SESSION["flash_success"] = "✅ Reminder added!";
     header("Location: reminder.php"); exit;
@@ -113,6 +152,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_reminder"])) {
         recurring=$recurring
         WHERE id=$id AND user_id=$current_user_id
     ");
+    reminderRecordActivity(
+        $conn,
+        (int)$current_user_id,
+        'Updated reminder',
+        'Success',
+        'Reminder details were updated.',
+        'trading.reminder_updated',
+        ['reminder_id' => $id, 'title' => $title, 'category' => $category, 'remind_time' => $remind_time]
+    );
 
     $_SESSION["flash_success"] = "✏️ Reminder updated!";
     header("Location: reminder.php"); exit;
@@ -124,6 +172,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_reminder"])) {
 if (isset($_GET["delete"])) {
     $id = intval($_GET["delete"]);
     $conn->query("DELETE FROM reminders WHERE id=$id AND user_id=$current_user_id");
+    reminderRecordActivity(
+        $conn,
+        (int)$current_user_id,
+        'Deleted reminder',
+        'Success',
+        'Reminder was deleted.',
+        'trading.reminder_deleted',
+        ['reminder_id' => $id]
+    );
     $_SESSION["flash_success"] = "🗑️ Deleted.";
     header("Location: reminder.php"); exit;
 }

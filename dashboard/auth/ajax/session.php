@@ -7,6 +7,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+function authRecordActivity(mysqli $conn, int $userId, string $actionTitle, string $status = "Success", ?string $notes = null, string $eventType = "activity.generic", array $metadata = []): void
+{
+    ActivityLogger::log($conn, $userId, $eventType, $actionTitle, "auth/login", $status, $notes, $metadata, ["page" => "auth/login"]);
+}
+
 if (!isset($_POST["req"])) {
     exit("INVALID REQUEST");
 }
@@ -49,7 +54,20 @@ switch ($_POST["req"]) {
         $user = mysqli_fetch_assoc($result);
         mysqli_stmt_close($stmt);
 
-        if (!$user || !password_verify($password, $user["user_password"])) {
+        if (!$user) {
+            exit("Invalid email or password.");
+        }
+
+        if (!password_verify($password, $user["user_password"])) {
+            authRecordActivity(
+                $conn,
+                (int)$user["user_id"],
+                "Failed sign-in attempt",
+                "Failed",
+                "A sign-in attempt was rejected.",
+                "auth.sign_in_failed",
+                ["email" => $email]
+            );
             exit("Invalid email or password.");
         }
 
@@ -79,6 +97,37 @@ switch ($_POST["req"]) {
             mysqli_stmt_bind_param($updateLogin, "i", $uid);
             mysqli_stmt_execute($updateLogin);
             mysqli_stmt_close($updateLogin);
+        }
+
+        $uid = (int)$user["user_id"];
+        $currentDevice = substr((string)($_SERVER["HTTP_USER_AGENT"] ?? "unknown"), 0, 120);
+        $isNewDevice = true;
+        $deviceStmt = mysqli_prepare(
+            $conn,
+            "SELECT id
+             FROM activities
+             WHERE user_id = ?
+               AND device = ?
+               AND action_title = 'Signed in from new device'
+             LIMIT 1"
+        );
+        if ($deviceStmt) {
+            mysqli_stmt_bind_param($deviceStmt, "is", $uid, $currentDevice);
+            mysqli_stmt_execute($deviceStmt);
+            $deviceResult = mysqli_stmt_get_result($deviceStmt);
+            $isNewDevice = !$deviceResult || mysqli_num_rows($deviceResult) === 0;
+            mysqli_stmt_close($deviceStmt);
+        }
+        if ($isNewDevice) {
+            authRecordActivity(
+                $conn,
+                $uid,
+                "Signed in from new device",
+                "Warning",
+                "A new-device sign-in was detected.",
+                "auth.new_device_sign_in",
+                ["device" => $currentDevice]
+            );
         }
 
         exit("OK");

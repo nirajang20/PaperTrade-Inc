@@ -34,6 +34,10 @@ function swalScript($title, $text, $icon = 'info', $thenJs = '') {
   </script>";
 }
 
+function profileRecordActivity($conn, $userId, $actionTitle, $notes = null, $status = 'Success', $eventType = 'activity.generic', $metadata = []) {
+  ActivityLogger::log($conn, (int)$userId, (string)$eventType, (string)$actionTitle, 'my-account/profile', (string)$status, $notes, (array)$metadata, ['page' => 'my-account/profile']);
+}
+
 $passwordLastChanged = "—";
 $passwordLastChangedRaw = null;
 foreach (['password_updated_at', 'password_updated', 'password_changed_at', 'last_password_change'] as $field) {
@@ -100,6 +104,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['info_update'])) {
       }
     ");
   } else {
+    $oldName = '';
+    $oldEmail = '';
+    $stmtBefore = $conn->prepare("SELECT user_name, user_email FROM users WHERE user_id = ? LIMIT 1");
+    if ($stmtBefore) {
+      $stmtBefore->bind_param("i", $user_id);
+      if ($stmtBefore->execute()) {
+        $stmtBefore->bind_result($oldName, $oldEmail);
+        $stmtBefore->fetch();
+      }
+      $stmtBefore->close();
+    }
+
     $sql = "UPDATE users
             SET user_name = ?, user_email = ?, dob = ?, user_phone = ?, address = ?, last_updated = ?
             WHERE user_id = ?";
@@ -108,6 +124,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['info_update'])) {
     if ($stmt) {
       $stmt->bind_param("ssssssi", $name, $email, $dob, $phone, $address, $updated_at, $user_id);
       if ($stmt->execute()) {
+        $oldName = trim((string)$oldName);
+        $oldEmail = trim((string)$oldEmail);
+        if ($oldName !== $name) {
+          profileRecordActivity($conn, $user_id, 'Updated profile name', 'Profile details were updated.', 'Success', 'account.profile_name_updated');
+        }
+        if (strcasecmp($oldEmail, $email) !== 0) {
+          profileRecordActivity($conn, $user_id, 'Updated email', 'Profile details were updated.', 'Success', 'account.email_updated');
+        }
         swalScript("Success!", "Your information has been updated successfully.", "success", "
           window.location.href = window.location.href;
         ");
@@ -209,6 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password_update'])) {
     } else {
       $stmtUpdate->bind_param("si", $hashedPassword, $user_id);
       if ($stmtUpdate->execute()) {
+        profileRecordActivity($conn, $user_id, 'Changed password', 'Security credentials were updated.', 'Success', 'account.password_changed');
         swalScript("Success!", "Your password has been updated.", "success", "
           window.location.href = window.location.href;
         ");
@@ -561,7 +586,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['avatar_update'])) {
 }
 .list-summary li span.value {
   font-weight: 600;
-  color: #212529;
+  color: var(--summary-value-color);
+}
+.list-summary {
+  --summary-value-color: #212529;
+  --summary-label-color: #6c757d;
+}
+.list-summary li .text-muted {
+  color: var(--summary-label-color) !important;
+}
+body.dark-mode .list-summary {
+  --summary-value-color: #f8f9fa;
+  --summary-label-color: #adb5bd;
 }
 .password-guidelines li {
   margin-bottom: 0.3rem;

@@ -357,6 +357,7 @@ $curatedCollections = [
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const apiBase = "https://api.paper-trade.org";
+  const searchLogEndpoint = "../ajax-session.php";
   const DEFAULT_SYMBOL = <?=json_encode($defaultSymbol); ?>;
   const spotlightSymbols = <?=json_encode($spotlightSymbols, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
 
@@ -422,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 
   let chartInstance = null;
+  const loggedSearches = new Map();
 
   function toCurrency(value) {
     const num = Number(value);
@@ -475,6 +477,32 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     } else {
       alert(message || 'Unable to load symbol.');
+    }
+  }
+
+  async function logSearchSymbol(symbol) {
+    const upper = (symbol || '').trim().toUpperCase();
+    if (!upper) return;
+
+    const now = Date.now();
+    const last = loggedSearches.get(upper) || 0;
+    if ((now - last) < 5000) {
+      return;
+    }
+    loggedSearches.set(upper, now);
+
+    try {
+      const params = new URLSearchParams();
+      params.set('req', 'activity_search_symbol');
+      params.set('symbol', upper);
+      await fetch(searchLogEndpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: params.toString()
+      });
+    } catch (error) {
+      console.warn('Search activity log failed:', error);
     }
   }
 
@@ -718,6 +746,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadSymbol(symbol, options) {
     const cleaned = (symbol || '').trim().toUpperCase();
+    const shouldTrack = !(options && options.track === false);
     if (!cleaned) {
       searchFeedback.textContent = 'Enter a ticker symbol, e.g. NVDA or BTC-USD.';
       searchFeedback.classList.remove('d-none');
@@ -736,6 +765,9 @@ document.addEventListener('DOMContentLoaded', function () {
       updateQuickSymbolActive(cleaned);
       updateOverview(data);
       await loadChart(cleaned, state.currentRange, options);
+      if (shouldTrack) {
+        logSearchSymbol(cleaned);
+      }
     } catch (error) {
       showError(error.message || 'Unable to load the requested symbol.');
     }
@@ -824,7 +856,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  loadSymbol(DEFAULT_SYMBOL);
+  loadSymbol(DEFAULT_SYMBOL, { track: false });
   loadTrendingMovers();
   setInterval(loadTrendingMovers, 120000);
 });

@@ -16,6 +16,20 @@ if (empty($active_user) || !isset($active_user["user_id"])) {
 
 $userId = (int) $active_user["user_id"];
 
+if (ActivityLogger::shouldLogSession("trading.transaction_viewed.{$userId}", 300)) {
+  ActivityLogger::log(
+    $conn,
+    $userId,
+    'trading.transaction_viewed',
+    'Viewed transaction details',
+    'trading/transactions',
+    'Success',
+    'Transaction details were opened.',
+    [],
+    ['page' => 'trading/transactions']
+  );
+}
+
 $transactions = [];
 $symbolStats = [];
 $totals = [

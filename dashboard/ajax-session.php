@@ -1,6 +1,23 @@
 <?php
 require "lib/Core.php";
 
+if (!function_exists('dashboardRecordActivity')) {
+  function dashboardRecordActivity($conn, $userId, $actionTitle, $status = 'Success', $notes = null, $eventType = 'activity.generic', $metadata = [], $page = 'dashboard/ajax-session')
+  {
+    ActivityLogger::log(
+      $conn,
+      (int)$userId,
+      (string)$eventType,
+      (string)$actionTitle,
+      (string)$page,
+      (string)$status,
+      $notes,
+      (array)$metadata,
+      ['page' => $page]
+    );
+  }
+}
+
 if (isset($_POST["req"])) {
   switch ($_POST["req"]) {
 
@@ -73,6 +90,29 @@ if (isset($_POST["req"])) {
       }
 
     // (C) NOTIFICATIONS
+    case "activity_search_symbol":
+      if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
+        exit("Please login first.");
+      }
+      $ownerId = (int) $_SESSION["user"]["user_id"];
+      $symbolRaw = isset($_POST["symbol"]) ? strtoupper(trim((string)$_POST["symbol"])) : "";
+      $symbol = preg_replace("/[^A-Z0-9\\.\\-\\^]/", "", $symbolRaw);
+      if ($symbol === "") {
+        exit("Invalid symbol.");
+      }
+      dashboardRecordActivity(
+        $conn,
+        $ownerId,
+        "Searched stock symbol",
+        "Success",
+        "Market search executed for {$symbol}.",
+        "search.symbol_queried",
+        ["symbol" => $symbol],
+        "trading/search"
+      );
+      exit("OK");
+
+    // (C) NOTIFICATIONS
     case "notification_mark":
       if (!isset($_SESSION["user"], $_SESSION["user"]["user_id"])) {
         exit("Please login first.");
@@ -102,6 +142,16 @@ if (isset($_POST["req"])) {
       if ($affected < 1) {
         exit("Notification not found.");
       }
+      dashboardRecordActivity(
+        $conn,
+        $ownerId,
+        "Updated notification settings",
+        "Success",
+        $isMarkRead ? "Notification was marked as read." : "Notification was marked as unread.",
+        "account.notifications_updated",
+        ["action" => $isMarkRead ? "mark_read" : "mark_unread", "notification_id" => $notifId],
+        "my-account/notifications"
+      );
       exit("OK");
 
     case "notification_delete":
@@ -121,6 +171,16 @@ if (isset($_POST["req"])) {
       if ($affected < 1) {
         exit("Notification not found.");
       }
+      dashboardRecordActivity(
+        $conn,
+        $ownerId,
+        "Updated notification settings",
+        "Success",
+        "Notification was moved to deleted.",
+        "account.notifications_updated",
+        ["action" => "delete", "notification_id" => $notifId],
+        "my-account/notifications"
+      );
       exit("OK");
 
     case "notification_restore":
@@ -140,6 +200,16 @@ if (isset($_POST["req"])) {
       if ($affected < 1) {
         exit("Notification not found.");
       }
+      dashboardRecordActivity(
+        $conn,
+        $ownerId,
+        "Updated notification settings",
+        "Success",
+        "Notification was restored.",
+        "account.notifications_updated",
+        ["action" => "restore", "notification_id" => $notifId],
+        "my-account/notifications"
+      );
       exit("OK");
 
     case "notification_destroy":
@@ -159,6 +229,16 @@ if (isset($_POST["req"])) {
       if ($affected < 1) {
         exit("Notification not found.");
       }
+      dashboardRecordActivity(
+        $conn,
+        $ownerId,
+        "Updated notification settings",
+        "Success",
+        "Notification was permanently deleted.",
+        "account.notifications_updated",
+        ["action" => "destroy", "notification_id" => $notifId],
+        "my-account/notifications"
+      );
       exit("OK");
 
     case "notification_fetch":

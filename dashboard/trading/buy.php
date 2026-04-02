@@ -7,33 +7,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!function_exists('recordActivity')) {
-  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success')
+  function recordActivity($conn, $userId, $actionTitle, $pageName, $notes = null, $status = 'Success', $eventType = 'activity.generic', $metadata = [])
   {
-    if (!$conn || !$userId) {
-      return;
-    }
-    $allowedStatuses = ['Success', 'Pending', 'Failed', 'Warning'];
-    if (!in_array($status, $allowedStatuses, true)) {
-      $status = 'Success';
-    }
-    $device = substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 100);
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
-    $ipv4 = null;
-    $ipv6 = null;
-    if ($ipAddress) {
-      if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-        $ipv4 = $ipAddress;
-      } elseif (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-        $ipv6 = $ipAddress;
-      }
-    }
-    $stmt = $conn->prepare("INSERT INTO activities (action_title, page_name, notes, status, device, ipv4, ipv6, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    if ($stmt) {
-      $notesValue = $notes !== '' ? $notes : null;
-      $stmt->bind_param("sssssssi", $actionTitle, $pageName, $notesValue, $status, $device, $ipv4, $ipv6, $userId);
-      $stmt->execute();
-      $stmt->close();
-    }
+    ActivityLogger::log($conn, (int)$userId, (string)$eventType, (string)$actionTitle, (string)$pageName, (string)$status, $notes, (array)$metadata, ['page' => $pageName]);
   }
 }
 
@@ -48,11 +24,14 @@ if (!empty($_SESSION['last_trade_symbol'])) {
 $tradeAlert = null;
 $activityStatus = null;
 $activityNotes = null;
+$activityTitle = null;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) {
   $orderModeRaw = $_POST["order_mode"] ?? "";
   $orderMode = strtolower(trim($orderModeRaw));
   $symbol = strtoupper(trim($_POST["symbol"] ?? ""));
+  $symbol = preg_replace('/[^A-Z0-9\.\-\^]/', '', $symbol);
+  $activityTitle = $symbol !== '' ? "Bought {$symbol}" : 'Bought stock';
   $quantityInput = isset($_POST["quantity"]) ? (float) $_POST["quantity"] : 0.0;
   $amountInput = isset($_POST["amount"]) ? (float) $_POST["amount"] : 0.0;
   $limitPriceInput = isset($_POST["limit_price"]) ? (float) $_POST["limit_price"] : 0.0;
@@ -290,20 +269,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
         "text" => "Your order for {$symbol} has been recorded and holdings updated."
       ];
       $activityStatus = 'Success';
-      $activityNotes = sprintf(
-        "BUY %s | Qty %s | Px %s | Fees %s",
-        $symbol,
-        number_format($quantityFormatted, 4, '.', ''),
-        number_format($priceFormatted, 4, '.', ''),
-        number_format($feesFormatted, 2, '.', '')
-      );
+      $activityNotes = 'Buy order recorded.';
     } catch (Exception $exception) {
       if ($transactionStarted) {
         $conn->rollback();
       }
       $errors[] = $exception->getMessage();
       $activityStatus = 'Failed';
-      $activityNotes = $exception->getMessage();
+      $activityNotes = 'Buy order failed.';
     }
   }
 
@@ -315,7 +288,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
     ];
     if ($activityStatus === null) {
       $activityStatus = 'Failed';
-      $activityNotes = implode("; ", array_unique($errors));
+      $activityNotes = 'Buy order failed.';
     }
   }
 
@@ -323,10 +296,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["buy_order_submit"])) 
     recordActivity(
       $conn,
       (int) $active_user['user_id'],
-      'Buy Order',
+      $activityTitle ?: 'Bought stock',
       'Trading',
       $activityNotes,
-      $activityStatus
+      $activityStatus,
+      'trade.buy',
+      [
+        'symbol' => $symbol ?: null,
+        'order_mode' => $orderMode ?: null
+      ]
     );
   }
 }
