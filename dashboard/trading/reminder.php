@@ -24,14 +24,82 @@ if (!function_exists('reminderRecordActivity')) {
     }
 }
 
+if (!function_exists('reminderRecurringCodeFromInput')) {
+    function reminderRecurringCodeFromInput($value)
+    {
+        $raw = strtolower(trim((string)$value));
+        if ($raw === 'daily' || $raw === '1') return 1;
+        if ($raw === 'weekly' || $raw === '2') return 2;
+        if ($raw === 'monthly' || $raw === '3') return 3;
+        return 0;
+    }
+}
+
+if (!function_exists('reminderRecurringInputValue')) {
+    function reminderRecurringInputValue($code)
+    {
+        $num = (int)$code;
+        if ($num === 1) return 'daily';
+        if ($num === 2) return 'weekly';
+        if ($num === 3) return 'monthly';
+        return 'none';
+    }
+}
+
+if (!function_exists('reminderParseDateTime')) {
+    function reminderParseDateTime($value)
+    {
+        $raw = trim((string)$value);
+        if ($raw === '') return null;
+
+        $normalized = str_replace('T', ' ', $raw);
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $normalized)) {
+            $normalized .= ':00';
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $normalized)) {
+            return null;
+        }
+
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $normalized);
+        if (!$dt) return null;
+        return $dt->format('Y-m-d H:i:s');
+    }
+}
+
+if (!function_exists('reminderAdvanceOccurrence')) {
+    function reminderAdvanceOccurrence(DateTimeImmutable $dt, $recurring)
+    {
+        $mode = (int)$recurring;
+        if ($mode === 1) return $dt->modify('+1 day');
+        if ($mode === 2) return $dt->modify('+1 week');
+        if ($mode === 3) return $dt->modify('+1 month');
+        return null;
+    }
+}
+
+if (!function_exists('reminderSnoozeConfig')) {
+    function reminderSnoozeConfig($key)
+    {
+        $mode = strtolower(trim((string)$key));
+        $map = [
+            '15m' => ['sql' => 'INTERVAL 15 MINUTE', 'label' => '15 minutes'],
+            '1h' => ['sql' => 'INTERVAL 1 HOUR', 'label' => '1 hour'],
+            '1d' => ['sql' => 'INTERVAL 1 DAY', 'label' => '1 day'],
+        ];
+        return $map[$mode] ?? $map['1d'];
+    }
+}
+
 /* ============================
    HANDLE DRAG UPDATE (AJAX)
 ============================ */
 if (isset($_POST["drag_update"])) {
+    header('Content-Type: application/json');
     $id = intval($_POST["id"]);
-    $time = $_POST["remind_time"] ?? "";
+    $time = reminderParseDateTime($_POST["remind_time"] ?? "");
 
-    if (!preg_match("/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/", $time)) {
+    if ($time === null) {
         echo json_encode(["status" => "error", "msg" => "Invalid time"]);
         exit;
     }
@@ -44,17 +112,30 @@ if (isset($_POST["drag_update"])) {
         exit;
     }
 
-    $conn->query("UPDATE reminders SET remind_time='$time', status='Pending' WHERE id=$id AND user_id=$current_user_id");
-    reminderRecordActivity(
-        $conn,
-        (int)$current_user_id,
-        'Updated reminder',
-        'Success',
-        'Reminder was rescheduled.',
-        'trading.reminder_updated',
-        ['reminder_id' => $id, 'remind_time' => $time]
-    );
-    echo json_encode(["status" => "success"]);
+    $ok = $conn->query("UPDATE reminders SET remind_time='$time', status='Pending' WHERE id=$id AND user_id=$current_user_id");
+    if ($ok && $conn->affected_rows > 0) {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Updated reminder',
+            'Success',
+            'Reminder was rescheduled.',
+            'trading.reminder_updated',
+            ['reminder_id' => $id, 'remind_time' => $time]
+        );
+        echo json_encode(["status" => "success"]);
+    } else {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Updated reminder',
+            'Failed',
+            'Reminder reschedule failed.',
+            'trading.reminder_updated',
+            ['reminder_id' => $id, 'remind_time' => $time]
+        );
+        echo json_encode(["status" => "error", "msg" => "Unable to update reminder"]);
+    }
     exit;
 }
 
@@ -73,23 +154,70 @@ $conn->query("
    AUTO-GENERATE RECURRING
 ============================ */
 $rec = $conn->query("
-    SELECT * FROM reminders
+    SELECT id, user_id, title, remind_time, category, description, recurring
+    FROM reminders
     WHERE user_id=$current_user_id
       AND recurring IN (1,2,3)
 ");
 
 if ($rec && $rec->num_rows > 0) {
-    while ($r = $rec->fetch_assoc()) {
-        if ($r['recurring'] == 1) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 DAY)";
-        if ($r['recurring'] == 2) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 WEEK)";
-        if ($r['recurring'] == 3) $next = "DATE_ADD('{$r['remind_time']}', INTERVAL 1 MONTH)";
-        $conn->query("
-            INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
-            SELECT user_id,title,$next,category,description,'Pending',recurring
-            FROM reminders
-            WHERE id={$r['id']} AND $next <= NOW()
-        ");
+    $checkStmt = $conn->prepare("
+        SELECT id
+        FROM reminders
+        WHERE user_id = ?
+          AND title = ?
+          AND remind_time = ?
+          AND category = ?
+          AND IFNULL(description, '') = IFNULL(?, '')
+          AND recurring = ?
+        LIMIT 1
+    ");
+
+    $insertStmt = $conn->prepare("
+        INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
+        VALUES (?,?,?,?,?,'Pending',?)
+    ");
+
+    if ($checkStmt && $insertStmt) {
+        $now = new DateTimeImmutable('now');
+
+        while ($r = $rec->fetch_assoc()) {
+            $base = reminderParseDateTime($r['remind_time'] ?? '');
+            if ($base === null) continue;
+            $next = reminderAdvanceOccurrence(new DateTimeImmutable($base), (int)$r['recurring']);
+            if ($next === null) continue;
+
+            $iterations = 0;
+            while ($next <= $now && $iterations < 120) {
+                $nextStr = $next->format('Y-m-d H:i:s');
+                $userId = (int)$r['user_id'];
+                $title = (string)$r['title'];
+                $category = (string)$r['category'];
+                $description = isset($r['description']) ? (string)$r['description'] : null;
+                $recurring = (int)$r['recurring'];
+
+                $checkStmt->bind_param("issssi", $userId, $title, $nextStr, $category, $description, $recurring);
+                $exists = false;
+                if ($checkStmt->execute()) {
+                    $checkStmt->store_result();
+                    $exists = ($checkStmt->num_rows > 0);
+                    $checkStmt->free_result();
+                }
+
+                if (!$exists) {
+                    $insertStmt->bind_param("issssi", $userId, $title, $nextStr, $category, $description, $recurring);
+                    $insertStmt->execute();
+                }
+
+                $next = reminderAdvanceOccurrence($next, $recurring);
+                if ($next === null) break;
+                $iterations++;
+            }
+        }
     }
+
+    if ($checkStmt) $checkStmt->close();
+    if ($insertStmt) $insertStmt->close();
 }
 
 /* ============================
@@ -106,12 +234,17 @@ $reminders = $q ? $q->fetch_all(MYSQLI_ASSOC) : [];
    ADD REMINDER
 ============================ */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_reminder"])) {
-    $title = mysqli_real_escape_string($conn, $_POST["title"]);
-    $category = mysqli_real_escape_string($conn, $_POST["category"]);
-    $description = mysqli_real_escape_string($conn, $_POST["description"]);
-    $remind_time = mysqli_real_escape_string($conn, $_POST["remind_time"]);
-    $rec = mysqli_real_escape_string($conn, $_POST["recurrence"]);
-    $recurring = ($rec=="daily"?1:($rec=="weekly"?2:($rec=="monthly"?3:0)));
+    $title = mysqli_real_escape_string($conn, $_POST["title"] ?? "");
+    $category = mysqli_real_escape_string($conn, $_POST["category"] ?? "");
+    $description = mysqli_real_escape_string($conn, $_POST["description"] ?? "");
+    $parsedRemindTime = reminderParseDateTime($_POST["remind_time"] ?? "");
+    $recurring = reminderRecurringCodeFromInput($_POST["recurrence"] ?? "none");
+
+    if ($parsedRemindTime === null) {
+        $_SESSION["flash_success"] = "Invalid date/time format.";
+        header("Location: reminder.php"); exit;
+    }
+    $remind_time = mysqli_real_escape_string($conn, $parsedRemindTime);
 
     $conn->query("
         INSERT INTO reminders (user_id,title,remind_time,category,description,status,recurring)
@@ -127,7 +260,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_reminder"])) {
         ['title' => $title, 'category' => $category, 'remind_time' => $remind_time]
     );
 
-    $_SESSION["flash_success"] = "✅ Reminder added!";
+    $_SESSION["flash_success"] = "&#x2705; Reminder added!";
     header("Location: reminder.php"); exit;
 }
 
@@ -136,12 +269,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_reminder"])) {
 ============================ */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_reminder"])) {
     $id = intval($_POST["id"]);
-    $title = mysqli_real_escape_string($conn, $_POST["title"]);
-    $category = mysqli_real_escape_string($conn, $_POST["category"]);
-    $description = mysqli_real_escape_string($conn, $_POST["description"]);
-    $remind_time = mysqli_real_escape_string($conn, $_POST["remind_time"]);
-    $rec = mysqli_real_escape_string($conn, $_POST["recurrence"]);
-    $recurring = ($rec=="daily"?1:($rec=="weekly"?2:($rec=="monthly"?3:0)));
+    $title = mysqli_real_escape_string($conn, $_POST["title"] ?? "");
+    $category = mysqli_real_escape_string($conn, $_POST["category"] ?? "");
+    $description = mysqli_real_escape_string($conn, $_POST["description"] ?? "");
+    $parsedRemindTime = reminderParseDateTime($_POST["remind_time"] ?? "");
+    $recurring = reminderRecurringCodeFromInput($_POST["recurrence"] ?? "none");
+
+    if ($parsedRemindTime === null) {
+        $_SESSION["flash_success"] = "Invalid date/time format.";
+        header("Location: reminder.php"); exit;
+    }
+    $remind_time = mysqli_real_escape_string($conn, $parsedRemindTime);
 
     $conn->query("
         UPDATE reminders SET
@@ -162,7 +300,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_reminder"])) {
         ['reminder_id' => $id, 'title' => $title, 'category' => $category, 'remind_time' => $remind_time]
     );
 
-    $_SESSION["flash_success"] = "✏️ Reminder updated!";
+    $_SESSION["flash_success"] = "&#x270F;&#xFE0F; Reminder updated!";
     header("Location: reminder.php"); exit;
 }
 
@@ -181,7 +319,7 @@ if (isset($_GET["delete"])) {
         'trading.reminder_deleted',
         ['reminder_id' => $id]
     );
-    $_SESSION["flash_success"] = "🗑️ Deleted.";
+    $_SESSION["flash_success"] = "&#x1F5D1;&#xFE0F; Deleted.";
     header("Location: reminder.php"); exit;
 }
 
@@ -190,8 +328,30 @@ if (isset($_GET["delete"])) {
 ============================ */
 if (isset($_GET["done"])) {
     $id = intval($_GET["done"]);
-    $conn->query("UPDATE reminders SET status='Completed' WHERE id=$id AND user_id=$current_user_id");
-    $_SESSION["flash_success"] = "🎉 Completed!";
+    $ok = $conn->query("UPDATE reminders SET status='Completed' WHERE id=$id AND user_id=$current_user_id");
+    if ($ok && $conn->affected_rows > 0) {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Completed reminder',
+            'Success',
+            'Reminder was marked completed.',
+            'trading.reminder_completed',
+            ['reminder_id' => $id]
+        );
+        $_SESSION["flash_success"] = "&#x1F389; Completed!";
+    } else {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Completed reminder',
+            'Failed',
+            'Reminder completion failed.',
+            'trading.reminder_completed',
+            ['reminder_id' => $id]
+        );
+        $_SESSION["flash_success"] = "Reminder not found.";
+    }
     header("Location: reminder.php"); exit;
 }
 
@@ -200,13 +360,36 @@ if (isset($_GET["done"])) {
 ============================ */
 if (isset($_GET["snooze"])) {
     $id = intval($_GET["snooze"]);
+    $snooze = reminderSnoozeConfig($_GET["by"] ?? "1d");
     $conn->query("
         UPDATE reminders
-        SET remind_time = DATE_ADD(remind_time, INTERVAL 1 DAY),
+        SET remind_time = DATE_ADD(remind_time, {$snooze['sql']}),
             status='Pending'
         WHERE id=$id AND user_id=$current_user_id
     ");
-    $_SESSION["flash_success"] = "😴 Snoozed 1 day.";
+    if ($conn->affected_rows > 0) {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Snoozed reminder',
+            'Success',
+            'Reminder was snoozed.',
+            'trading.reminder_snoozed',
+            ['reminder_id' => $id, 'snooze_by' => $snooze['label']]
+        );
+        $_SESSION["flash_success"] = "&#x1F634; Snoozed {$snooze['label']}.";
+    } else {
+        reminderRecordActivity(
+            $conn,
+            (int)$current_user_id,
+            'Snoozed reminder',
+            'Failed',
+            'Reminder snooze failed.',
+            'trading.reminder_snoozed',
+            ['reminder_id' => $id, 'snooze_by' => $snooze['label']]
+        );
+        $_SESSION["flash_success"] = "Reminder not found.";
+    }
     header("Location: reminder.php"); exit;
 }
 
@@ -245,8 +428,8 @@ require PATH_LIB . "PAGE-top.php";
 ============================ -->
 <div class="container-fluid mb-3">
 <ul class="nav nav-tabs" id="reminderTabs">
-    <li class="nav-item"><a class="nav-link active" data-target="#tab-calendar">📅 Calendar View</a></li>
-    <li class="nav-item"><a class="nav-link" data-target="#tab-list">📋 Remainder List</a></li>
+    <li class="nav-item"><a class="nav-link active" data-target="#tab-calendar">&#x1F4C5; Calendar View</a></li>
+    <li class="nav-item"><a class="nav-link" data-target="#tab-list">&#x1F4CB; Remainder List</a></li>
 </ul>
 </div>
 
@@ -459,7 +642,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 category:"<?= $r['category'] ?>",
                 status:"<?= $r['status'] ?>",
                 description:"<?= addslashes($r['description']) ?>",
-                recurrence:"<?= $r['recurring'] ?>"
+                recurrence:"<?= reminderRecurringInputValue($r['recurring']) ?>"
             },
             backgroundColor:"<?= $r['status']=='Completed'?'#28a745':($r['status']=='Missed'?'#dc3545':($r['category']=='Buy/Sell Plan'?'#007bff':($r['category']=='Market Watch'?'#28a745':($r['category']=='Portfolio Review'?'#fd7e14':'#6c757d')))) ?>"
         },
@@ -494,7 +677,13 @@ document.addEventListener("DOMContentLoaded", function() {
             $("#editDateTime").val(moment(e.start).format("YYYY-MM-DDTHH:mm"));
             $("#editCategory").val(e.extendedProps.category);
             $("#editDescription").val(e.extendedProps.description);
-            $("#editRecurrence").val(e.extendedProps.recurrence??"none");
+            const recurrence = (e.extendedProps.recurrence ?? "none").toString();
+            const recurrenceValue =
+                recurrence === "1" ? "daily" :
+                recurrence === "2" ? "weekly" :
+                recurrence === "3" ? "monthly" :
+                recurrence;
+            $("#editRecurrence").val(recurrenceValue);
             $("#editDoneBtn").attr("href","reminder.php?done="+e.id);
             $("#editSnoozeBtn").attr("href","reminder.php?snooze="+e.id);
             $("#editDeleteBtn").attr("href","reminder.php?delete="+e.id);
@@ -554,7 +743,7 @@ document.addEventListener("DOMContentLoaded", function() {
         let box=`
             <div class="alert alert-warning" style="position:fixed; bottom:20px; right:20px;
                  z-index:5000; min-width:280px;">
-                <strong>⏰ Upcoming Reminder:</strong><br>${ev.title}<br>
+                <strong>&#x23F0; Upcoming Reminder:</strong><br>${ev.title}<br>
                 <small>${moment(ev.start).format("MMM D, h:mm A")}</small>
             </div>`;
         $("body").append(box);
