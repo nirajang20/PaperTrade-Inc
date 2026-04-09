@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupYear();
   setupMobileMenu();
   setupSmartCta();
-  setupHeroMiniChart();
   loadLandingMarketData();
 });
 
@@ -20,16 +19,6 @@ const TICKER_SYMBOLS = [
   "ETH-USD"
 ];
 
-const HERO_BOARD_SYMBOLS = [
-  "NVDA",
-  "MSFT",
-  "AAPL",
-  "GOOGL",
-  "AMZN",
-  "META",
-  "TSLA",
-  "JPM"
-];
 
 function setupYear() {
   const yearEl = document.getElementById("year");
@@ -111,100 +100,41 @@ function setupSmartCta() {
   });
 }
 
-function setupHeroMiniChart() {
-  const canvas = document.getElementById("hero-mini-chart");
-  if (!canvas) return;
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+// Floating price labels scattered across the right half of the hero
+const FLOAT_POSITIONS = [
+  { top: "12%", left: "58%" },
+  { top: "8%",  left: "76%" },
+  { top: "38%", left: "64%" },
+  { top: "26%", left: "86%" },
+  { top: "58%", left: "74%" },
+  { top: "68%", left: "88%" },
+];
 
-  let frameId = null;
-  let phase = 0;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FLOAT_SYMBOLS = ["NVDA", "AAPL", "TSLA", "META", "MSFT", "JPM"];
 
-  function draw() {
-    const width = canvas.width;
-    const height = canvas.height;
+function renderHeroFloatPrices(data) {
+  const container = document.getElementById("hero-float-prices");
+  if (!container) return;
 
-    ctx.clearRect(0, 0, width, height);
+  const map   = new Map(data.map(item => [item.symbol, item]));
+  const chips = FLOAT_SYMBOLS.map(sym => map.get(sym)).filter(Boolean);
 
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    ctx.lineWidth = 1;
-
-    for (let i = 1; i < 5; i++) {
-      const y = (height / 5) * i;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += 8) {
-      const y =
-        height * 0.58 +
-        Math.sin(x * 0.02 + phase) * 12 +
-        Math.sin(x * 0.009 + phase * 1.15) * 6 -
-        x * 0.04;
-
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-
-    const fill = ctx.createLinearGradient(0, 0, 0, height);
-    fill.addColorStop(0, "rgba(66,207,255,0.18)");
-    fill.addColorStop(1, "rgba(66,207,255,0.02)");
-    ctx.fillStyle = fill;
-    ctx.fill();
-
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += 8) {
-      const y =
-        height * 0.58 +
-        Math.sin(x * 0.02 + phase) * 12 +
-        Math.sin(x * 0.009 + phase * 1.15) * 6 -
-        x * 0.04;
-
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-
-    ctx.strokeStyle = "rgba(97,233,186,0.95)";
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = "rgba(97,233,186,0.35)";
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
-
-  function animate() {
-    phase += 0.02;
-    draw();
-    frameId = requestAnimationFrame(animate);
-  }
-
-  draw();
-
-  if (!reduceMotion) {
-    animate();
-  }
-
-  window.addEventListener("beforeunload", () => {
-    if (frameId) cancelAnimationFrame(frameId);
-  });
+  container.innerHTML = chips.map((item, i) => {
+    const pos = FLOAT_POSITIONS[i];
+    if (!pos) return "";
+    return `<div class="hero-price-float" style="top:${pos.top};left:${pos.left};animation-delay:${(i * 0.13).toFixed(2)}s">
+      <span class="fpf-sym">${escapeHtml(item.symbol)}</span>
+      <span class="fpf-price">${formatPrice(item.price, item.symbol)}</span>
+    </div>`;
+  }).join("");
 }
+
+// ─── Market data loader ─────────────────────────────────────────────────────
 
 async function loadLandingMarketData() {
   const tickerRow = document.getElementById("ticker-row");
-  const heroBoard = document.getElementById("hero-market-board");
-  const boardStatus = document.getElementById("market-board-status");
-
-  const symbolSet = [...new Set([...TICKER_SYMBOLS, ...HERO_BOARD_SYMBOLS])];
-  const url = `dashboard/auth/ajax/landing-market.php?symbols=${encodeURIComponent(symbolSet.join(","))}`;
+  const url = `dashboard/auth/ajax/landing-market.php?symbols=${encodeURIComponent(TICKER_SYMBOLS.join(","))}`;
 
   try {
     const response = await fetch(url);
@@ -226,22 +156,9 @@ async function loadLandingMarketData() {
     );
 
     renderTickerRow(tickerRow, cleaned, TICKER_SYMBOLS);
-    renderHeroMarketBoard(heroBoard, cleaned, HERO_BOARD_SYMBOLS);
-
-    if (boardStatus) {
-      boardStatus.textContent = `${cleaned.length} symbols loaded`;
-    }
   } catch (error) {
     if (tickerRow) {
       tickerRow.innerHTML = `<div class="ticker-loading">Unable to load market data right now.</div>`;
-    }
-
-    if (heroBoard) {
-      heroBoard.innerHTML = `<div class="market-board-empty">Unable to load market data right now.</div>`;
-    }
-
-    if (boardStatus) {
-      boardStatus.textContent = "Unavailable";
     }
   }
 }
@@ -256,45 +173,24 @@ function renderTickerRow(container, data, orderedSymbols) {
     return;
   }
 
-  container.innerHTML = ordered.map(item => {
+  const buildItem = (item) => {
     const isUp = Number(item.change_pct) >= 0;
     const changeClass = isUp ? "up" : "down";
     const changePrefix = isUp ? "▲" : "▼";
 
-    return `
-      <div class="ticker-item">
+    return `<div class="ticker-item">
         <span class="symbol">${escapeHtml(item.symbol)}</span>
+        <span class="dot-sep" aria-hidden="true"></span>
         <span class="price">${formatPrice(item.price, item.symbol)}</span>
         <span class="change ${changeClass}">${changePrefix} ${formatPercent(item.change_pct)}</span>
-      </div>
-    `;
-  }).join("");
+      </div>`;
+  };
+
+  // Duplicate items so the animation loops seamlessly
+  const html = ordered.map(buildItem).join("");
+  container.innerHTML = html + html;
 }
 
-function renderHeroMarketBoard(container, data, orderedSymbols) {
-  if (!container) return;
-
-  const ordered = orderSymbols(data, orderedSymbols);
-
-  if (!ordered.length) {
-    container.innerHTML = `<div class="market-board-empty">No market data available.</div>`;
-    return;
-  }
-
-  container.innerHTML = ordered.map(item => {
-    const isUp = Number(item.change_pct) >= 0;
-    const changeClass = isUp ? "up" : "down";
-    const changePrefix = isUp ? "+" : "";
-
-    return `
-      <div class="market-board-item">
-        <span class="market-board-symbol">${escapeHtml(item.symbol)}</span>
-        <span class="market-board-price">${formatPrice(item.price, item.symbol)}</span>
-        <span class="market-board-change ${changeClass}">${changePrefix}${formatPercent(item.change_pct)}</span>
-      </div>
-    `;
-  }).join("");
-}
 
 function orderSymbols(data, orderedSymbols) {
   const map = new Map(data.map(item => [item.symbol, item]));
