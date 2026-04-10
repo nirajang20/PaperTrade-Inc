@@ -276,6 +276,7 @@ canvas {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
   margin-top: -5.5rem;
   padding: 8.5rem 0 0;
   overflow: hidden;
@@ -387,46 +388,6 @@ canvas {
   padding-bottom: 2rem;
 }
 
-.hero-stats {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  background: rgba(6, 10, 24, 0.58);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
-  padding: 0.8rem 0;
-}
-
-.hero-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  padding: 0 1.4rem;
-}
-
-.stat-div {
-  width: 1px;
-  height: 2rem;
-  background: rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
-}
-
-.hsc-val {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 0.97rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-
-.hsc-label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
 @media (max-width: 860px) {
   .hero-float-prices { display: none; }
   .hero-bg-overlay {
@@ -477,9 +438,12 @@ canvas {
 
 /* Market marquee — now lives inside the hero */
 .market-strip {
-  position: relative;
+  position: absolute;
+  bottom: 6rem;
+  left: 0;
+  right: 0;
   z-index: 5;
-  padding: 0.75rem 0 1.5rem;
+  padding: 0.75rem 0;
 }
 
 .marquee-track-wrap {
@@ -871,16 +835,6 @@ canvas {
 
   .hero-center h1 {
     font-size: clamp(2rem, 9vw, 2.8rem);
-  }
-
-  .hero-stats {
-    align-self: stretch;
-    border-radius: 12px;
-  }
-
-  .hero-stat {
-    padding: 0 1rem;
-    flex: 1;
   }
 }
 

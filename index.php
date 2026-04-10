@@ -66,23 +66,6 @@ declare(strict_types=1);
           <a href="#how" class="btn btn-secondary btn-lg">How It Works</a>
         </div>
 
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span class="hsc-val">$100K</span>
-            <span class="hsc-label">Virtual buying power</span>
-          </div>
-          <span class="stat-div" aria-hidden="true"></span>
-          <div class="hero-stat">
-            <span class="hsc-val up">Live Data</span>
-            <span class="hsc-label">Real market prices</span>
-          </div>
-          <span class="stat-div" aria-hidden="true"></span>
-          <div class="hero-stat">
-            <span class="hsc-val">Zero Risk</span>
-            <span class="hsc-label">No real money</span>
-          </div>
-        </div>
-
       </div>
 
       <div class="market-strip" aria-label="Live market ticker">
