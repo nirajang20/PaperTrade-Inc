@@ -7,7 +7,7 @@ require PATH_LIB . "PAGE-top.php";
      - if your login stores email instead, change this line
      - example in your other file: $active_email = $_SESSION['active_email'];
 */
-$current_user_id = $_SESSION['user_id'] ?? null; // <-- change if needed
+$current_user_id = $active_user['user_id']; // <-- change if needed
 
 /*
   2) FETCH ACTIVITIES FROM DB
@@ -27,10 +27,14 @@ $sql = "
     user_id,
     created_at
   FROM activities
+  WHERE user_id = ?
   ORDER BY created_at DESC, id DESC
   LIMIT 150
 ";
-$res = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $current_user_id);
+$stmt->execute();
+$res = $stmt->get_result();
 
 $activities = [];
 if ($res) {
@@ -38,6 +42,7 @@ if ($res) {
     $activities[] = $row;
   }
 }
+$stmt->close();
 
 // status map for badges (db → css)
 $statusBadgeMap = [
