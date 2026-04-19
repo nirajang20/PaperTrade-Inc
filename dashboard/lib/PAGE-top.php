@@ -1,6 +1,7 @@
 <?php
 // set time zone
 date_default_timezone_set('America/Chicago');
+
 // (A) LOGIN CHECK
 $_ISADMIN = isset($_SESSION["user"]);
 if (!$_ISADMIN && !isset($_ISLOGIN)) {
@@ -10,12 +11,14 @@ if (!$_ISADMIN && !isset($_ISLOGIN)) {
 if ($_ISADMIN && isset($_ISLOGIN)) {
   header("Location: " . URL_HOST);
   exit();
-} ?>
+}
+?>
 
 <!DOCTYPE html>
 <html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <head>
 <title>Dashboard</title>
 <script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM="
@@ -99,42 +102,42 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
           if (strcasecmp($row['status'], 'Read') !== 0) {
             $navNotificationsUnread++;
           }
-          $navNotifications[] = $row;
+
+          mysqli_stmt_close($stmtNav);
         }
-        mysqli_stmt_close($stmtNav);
+
+        $navNotificationsTotal = count($navNotifications);
+      } catch (Throwable $th) {
+        $navNotifications = [];
+        $navNotificationsTotal = 0;
+        $navNotificationsUnread = 0;
       }
-      $navNotificationsTotal = count($navNotifications);
-    } catch (Throwable $th) {
-      $navNotifications = [];
-      $navNotificationsTotal = 0;
-      $navNotificationsUnread = 0;
     }
   }
-}
-?>
+  ?>
 
-<!-- FullCalendar CSS -->
-<link rel="stylesheet" href="<?= URL_HOST ?>plugins/fullcalendar/main.css">
+  <!-- FullCalendar CSS -->
+  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/fullcalendar/main.css">
 
-<!-- moment.js (required for FullCalendar) -->
-<script src="<?= URL_HOST ?>plugins/moment/moment.min.js"></script>
+  <!-- moment.js -->
+  <script src="<?= URL_HOST ?>plugins/moment/moment.min.js"></script>
 
-<!-- FullCalendar JS -->
-<script src="<?= URL_HOST ?>plugins/fullcalendar/main.js"></script>
-
-
+  <!-- FullCalendar JS -->
+  <script src="<?= URL_HOST ?>plugins/fullcalendar/main.js"></script>
 </head>
-
 
 <body class="hold-transition sidebar-mini layout-fixed">
   <div class="wrapper">
+
     <?php if ($_ISADMIN) { ?>
-      <!-- (C) SIDE BAR -->
+      <!-- TOP NAVBAR -->
       <nav class="main-header navbar navbar-expand navbar-white navbar-light">
         <!-- Left navbar links -->
         <ul class="navbar-nav">
           <li class="nav-item">
-            <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button">
+              <i class="fas fa-bars"></i>
+            </a>
           </li>
         </ul>
 
@@ -155,18 +158,20 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 <?= $navNotificationsUnread ?>
               </span>
             </a>
+
             <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notifications-container">
               <span class="dropdown-header" data-role="notifications-header">
                 <?= $navNotificationsTotal > 0 ? $navNotificationsTotal . ' Notifications' : 'No notifications' ?>
               </span>
+
               <div class="notifications-body">
-                <?php if ($navNotificationsTotal === 0) : ?>
+                <?php if ($navNotificationsTotal === 0): ?>
                   <div class="dropdown-divider"></div>
                   <div class="dropdown-item text-center text-muted small notifications-empty">
                     You're all caught up!
                   </div>
-                <?php else : ?>
-                  <?php foreach ($navNotifications as $note) :
+                <?php else: ?>
+                  <?php foreach ($navNotifications as $note):
                     $noteStatus = $note['status'] ?? 'Unread';
                     $noteIsRead = strcasecmp($noteStatus, 'Read') === 0;
                     $noteTitle = $note['title'] !== null && $note['title'] !== '' ? $note['title'] : 'Notification';
@@ -181,7 +186,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                   ?>
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item notification-item<?= $noteIsRead ? ' read' : '' ?>"
-                      data-id="<?= (int) $note['notification_id'] ?>"
+                      data-id="<?= (int)$note['notification_id'] ?>"
                       data-payload="<?= $payload ?>">
                       <div class="notification-message" title="<?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>">
                         <div class="font-weight-semibold">
@@ -194,6 +199,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                           <?= htmlspecialchars($noteMessage, ENT_QUOTES, 'UTF-8') ?>
                         </small>
                       </div>
+
                       <div class="notification-actions text-right mt-1">
                         <a href="#"
                           class="notification-toggle<?= $noteIsRead ? ' text-secondary' : ' text-success' ?>"
@@ -205,10 +211,13 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                   <?php endforeach; ?>
                 <?php endif; ?>
               </div>
+
               <div class="dropdown-divider"></div>
-              <a href="<?= URL_HOST ?>my-account/notifications.php" class="dropdown-item dropdown-footer text-primary">View all notifications</a>
+              <a href="<?= URL_HOST ?>my-account/notifications.php"
+                class="dropdown-item dropdown-footer text-primary">View all notifications</a>
             </div>
           </li>
+
           <style>
             .notification-item.read .notification-message {
               opacity: 0.6;
@@ -225,7 +234,6 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 
           <script>
             document.addEventListener('DOMContentLoaded', function () {
-              // Dark Mode Toggle
               const darkModeToggle = document.getElementById('dark-mode-toggle');
               const body = document.body;
               const darkModeIcon = darkModeToggle.querySelector('i');
@@ -250,11 +258,9 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 setTheme(currentTheme);
               });
 
-              // Apply saved theme on load
               const savedTheme = localStorage.getItem('theme') || 'light';
               setTheme(savedTheme);
 
-              // Notifications Dropdown Logic
               const notificationContainer = document.querySelector('.notifications-container');
               const notificationBadge = document.querySelector('.notifications-nav .navbar-badge');
               const notificationHeader = notificationContainer ? notificationContainer.querySelector('.dropdown-header') : null;
@@ -273,6 +279,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 if (!notificationContainer) return;
                 const total = notificationContainer.querySelectorAll('.notification-item').length;
                 const unread = notificationContainer.querySelectorAll('.notification-item:not(.read)').length;
+
                 if (notificationBadge) {
                   notificationBadge.textContent = unread;
                   if (unread > 0) {
@@ -281,6 +288,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                     notificationBadge.classList.add('d-none');
                   }
                 }
+
                 if (notificationHeader) {
                   notificationHeader.textContent = total > 0 ? `${total} Notifications` : 'No notifications';
                 }
@@ -288,9 +296,11 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 
               function postNotificationAction(action, notificationId, onSuccess, extraData) {
                 if (!notificationId) return;
+
                 const formData = new FormData();
                 formData.append('req', action);
                 formData.append('notification_id', notificationId);
+
                 if (extraData && typeof extraData === 'object') {
                   Object.keys(extraData).forEach((key) => {
                     if (extraData[key] !== undefined && extraData[key] !== null) {
@@ -298,6 +308,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                     }
                   });
                 }
+
                 fetch(url.host + 'ajax-session.php', { method: 'POST', body: formData })
                   .then((res) => res.text())
                   .then((text) => {
@@ -314,13 +325,16 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 
               function applyNotificationReadState(item, isRead) {
                 if (!item) return;
+
                 item.classList.toggle('read', isRead);
                 const toggleLink = item.querySelector('.notification-toggle');
+
                 if (toggleLink) {
                   toggleLink.classList.toggle('text-success', !isRead);
                   toggleLink.classList.toggle('text-secondary', isRead);
                   toggleLink.setAttribute('title', isRead ? 'Mark as Unread' : 'Mark as Read');
                 }
+
                 const payload = item.getAttribute('data-payload');
                 if (payload) {
                   try {
@@ -405,10 +419,8 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                   toggleLink.appendChild(iconEl);
 
                   actionsWrapper.appendChild(toggleLink);
-
                   item.appendChild(messageWrapper);
                   item.appendChild(actionsWrapper);
-
                   notificationBody.appendChild(item);
                 });
               }
@@ -416,6 +428,7 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               function toggleNotificationState(item, targetStatus) {
                 if (!item) return;
                 const notificationId = item.getAttribute('data-id');
+
                 postNotificationAction(
                   'notification_mark',
                   notificationId,
@@ -428,20 +441,18 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               }
 
               function markNotificationAsRead(item) {
-                if (!item || item.classList.contains('read')) {
-                  return;
-                }
+                if (!item || item.classList.contains('read')) return;
                 toggleNotificationState(item, 'read');
               }
 
               function fetchNotifications() {
-                if (!notificationContainer || notificationFetchInProgress) {
-                  return;
-                }
+                if (!notificationContainer || notificationFetchInProgress) return;
+
                 notificationFetchInProgress = true;
                 const formData = new FormData();
                 formData.append('req', 'notification_fetch');
                 formData.append('limit', '6');
+
                 fetch(url.host + 'ajax-session.php', { method: 'POST', body: formData })
                   .then((res) => res.text())
                   .then((text) => {
@@ -451,12 +462,14 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                     } catch (error) {
                       throw new Error(text || 'Invalid response');
                     }
+
                     if (!data || data.success !== true || !Array.isArray(data.notifications)) {
                       if (data && data.message) {
                         console.warn('Notification fetch:', data.message);
                       }
                       return;
                     }
+
                     renderNotifications(data.notifications);
                     updateNotificationCount();
                   })
@@ -472,50 +485,49 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 if (!item) return;
                 const payload = item.getAttribute('data-payload');
                 if (!payload) return;
+
                 try {
                   const data = JSON.parse(payload);
                   const message = escapeHtml(data.message || '');
                   const created = escapeHtml(data.created || '');
+
                   Swal.fire({
                     title: data.title || 'Notification',
                     html: `<p class="text-left">${message.replace(/\n/g, '<br>')}</p>${created ? `<p class="text-muted text-left mb-0"><small>${created}</small></p>` : ''}`,
                     icon: 'info',
                     confirmButtonText: 'Close'
                   });
-                  markNotificationAsRead(item);
-                } catch (error) {
-                  console.error('Unable to parse notification payload', error);
-                }
-              }
 
-              function startNotificationPolling() {
-                if (!notificationContainer) return;
-                if (notificationPollTimer) {
-                  clearInterval(notificationPollTimer);
+                  if ((data.status || '').toLowerCase() !== 'read') {
+                    markNotificationAsRead(item);
+                  }
+                } catch (error) {
+                  console.warn('Unable to read notification payload', error);
                 }
-                fetchNotifications();
-                notificationPollTimer = setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL);
               }
 
               if (notificationContainer) {
                 notificationContainer.addEventListener('click', function (event) {
-                  const item = event.target.closest('.notification-item');
-                  const toggleAction = event.target.closest('.notification-toggle');
-                  if (toggleAction && item) {
+                  const toggleLink = event.target.closest('.notification-toggle');
+                  if (toggleLink) {
                     event.preventDefault();
-                    const targetStatus = item.classList.contains('read') ? 'unread' : 'read';
-                    toggleNotificationState(item, targetStatus);
+                    event.stopPropagation();
+                    const item = toggleLink.closest('.notification-item');
+                    if (!item) return;
+                    const shouldMarkRead = !item.classList.contains('read');
+                    toggleNotificationState(item, shouldMarkRead ? 'read' : 'unread');
                     return;
                   }
 
-                  if (item && !event.target.closest('.notification-actions')) {
+                  const item = event.target.closest('.notification-item');
+                  if (item) {
                     event.preventDefault();
                     showNotificationDetails(item);
                   }
                 });
 
-                updateNotificationCount();
-                startNotificationPolling();
+                fetchNotifications();
+                notificationPollTimer = window.setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL);
               }
             });
           </script>
@@ -525,33 +537,35 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
             <a class="nav-link" data-toggle="dropdown" href="#">
               <img src="<?= $navAvatarUrl ?>" alt="User" class="img-size-32 img-circle">
             </a>
-            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-              <div class="dropdown-header text-center">
-                <strong id="user-name">John Doe</strong><br>
-                <small id="user-role" class="text-muted">Trader</small>
-              </div>
+
+            <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+              <li class="user-header bg-primary">
+                <img src="<?= htmlspecialchars($activeAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+                  class="img-circle elevation-2"
+                  alt="User Image">
+
+                <p>
+                  <?= htmlspecialchars($active_user['user_name'] ?? 'User', ENT_QUOTES, 'UTF-8') ?>
+                  <small><?= htmlspecialchars($active_user['user_email'] ?? '', ENT_QUOTES, 'UTF-8') ?></small>
+                </p>
+              </li>
+
+              <li class="user-footer">
+                <a href="<?= URL_HOST ?>my-account/profile.php" class="btn btn-default btn-flat">Profile</a>
+                <a href="javascript:void(0)" class="btn btn-default btn-flat float-right" onclick="admin.bye()">Sign out</a>
+              </li>
+
               <div class="dropdown-divider"></div>
-              <a href="#" class="dropdown-item">
-                <i class="fas fa-wallet mr-2"></i> Available Cash
-                <span class="float-right text-success" id="user-cash">$<?= $active_user['user_balance'] ?></span>
-              </a>
-              <div class="dropdown-divider"></div>
-              <a href="javascript:void(0)" class="dropdown-item dropdown-footer text-danger" onclick="admin.bye()">
-                <i class="fas fa-sign-out-alt mr-2"></i> Logout
-              </a>
-            </div>
+            </ul>
           </li>
         </ul>
-
       </nav>
-
     <?php } ?>
-
-    <!-- (D) MAIN CONTENTS -->
 
     <?php if ($_ISADMIN) { ?>
       <aside class="main-sidebar elevation-4 bg-gradient-dark sidebar-dark-primary"
         style="background: #4d6d8e linear-gradient(180deg, #00193d, #000000) repeat-x !important;">
+
         <!-- Brand Logo -->
         <a href="<?= URL_HOST ?>" class="brand-link text-center border-bottom border-secondary py-3">
           <img src="<?= URL_HOST ?>dist/img/logo-horizontal.png" alt="PaperTrade Logo" class="img-fluid"
@@ -566,9 +580,12 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
               <img src="<?= $navAvatarUrl ?>"
                 class="img-circle elevation-3 border border-success" alt="User Image">
             </div>
+
             <div class="info">
               <a href="<?= URL_HOST ?>my-account/profile.php"
-                class="d-block text-light font-weight-bold hover-glow"><?= $active_user['user_name'] ?></a>
+                class="d-block text-light font-weight-bold hover-glow">
+                <?= htmlspecialchars($active_user['user_name'] ?? 'User', ENT_QUOTES, 'UTF-8') ?>
+              </a>
               <span class="text-xs text-muted">Active Trader</span>
             </div>
           </div>
@@ -577,7 +594,6 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
           <nav class="mt-2" id="sidebar">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
 
-              <!-- Dashboard -->
               <li class="nav-item">
                 <a href="<?= URL_HOST ?>" class="nav-link">
                   <i class="nav-icon fas fa-home text-success"></i>
@@ -585,31 +601,39 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 </a>
               </li>
 
-              <!-- Trading -->
               <li class="nav-item has-treeview">
                 <a href="#" class="nav-link">
                   <i class="nav-icon fas fa-chart-line text-warning"></i>
                   <p>Trading <i class="right fas fa-angle-left"></i></p>
                 </a>
                 <ul class="nav nav-treeview">
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/buy.php" class="nav-link"><i
-                        class="fas fa-coins nav-icon text-warning"></i>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>trading/buy.php" class="nav-link">
+                      <i class="fas fa-coins nav-icon text-warning"></i>
                       <p>Buy Stocks/Crypto</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/sell.php" class="nav-link"><i
-                        class="fas fa-hand-holding-usd nav-icon text-warning"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>trading/sell.php" class="nav-link">
+                      <i class="fas fa-hand-holding-usd nav-icon text-warning"></i>
                       <p>Sell Stocks/Crypto</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/reminder.php" class="nav-link"><i
-                        class="fas fa-bell nav-icon text-warning"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>trading/reminder.php" class="nav-link">
+                      <i class="fas fa-bell nav-icon text-warning"></i>
                       <p>Reminder</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/search.php" class="nav-link"><i
-                        class="fas fa-search-dollar nav-icon text-warning"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>trading/search.php" class="nav-link">
+                      <i class="fas fa-search-dollar nav-icon text-warning"></i>
                       <p>Search Stocks</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/transactions.php" class="nav-link"><i
-                        class="fas fa-history nav-icon text-warning"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>trading/transactions.php" class="nav-link">
+                      <i class="fas fa-history nav-icon text-warning"></i>
                       <p>My Transactions</p>
                     </a></li>
                   <li class="nav-item"><a href="<?= URL_HOST ?>trading/limit-lost.php" class="nav-link"><i
@@ -619,127 +643,133 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                 </ul>
               </li>
 
-              <!-- Portfolio -->
               <li class="nav-item has-treeview">
                 <a href="#" class="nav-link">
                   <i class="nav-icon fas fa-briefcase text-info"></i>
                   <p>Portfolio <i class="right fas fa-angle-left"></i></p>
                 </a>
                 <ul class="nav nav-treeview">
-                  <li class="nav-item"><a href="<?= URL_HOST ?>portfolio/my-holdings.php" class="nav-link"><i
-                        class="fas fa-wallet nav-icon text-info"></i>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>portfolio/my-holdings.php" class="nav-link">
+                      <i class="fas fa-wallet nav-icon text-info"></i>
                       <p>My Holdings</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>portfolio/watchlist.php" class="nav-link"><i
-                        class="fas fa-eye nav-icon text-info"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>portfolio/watchlist.php" class="nav-link">
+                      <i class="fas fa-eye nav-icon text-info"></i>
                       <p>Watchlist</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>portfolio/performance.php" class="nav-link"><i
-                        class="fas fa-chart-pie nav-icon text-info"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>portfolio/performance.php" class="nav-link">
+                      <i class="fas fa-chart-pie nav-icon text-info"></i>
                       <p>Performance</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>portfolio/export.php" class="nav-link"><i
-                        class="fas fa-file-export nav-icon text-info"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>portfolio/export.php" class="nav-link">
+                      <i class="fas fa-file-export nav-icon text-info"></i>
                       <p>Export Portfolio</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>portfolio/screener.php" class="nav-link"><i
-                        class="fas fa-filter nav-icon text-info"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>portfolio/screener.php" class="nav-link">
+                      <i class="fas fa-filter nav-icon text-info"></i>
                       <p>Stock Screener</p>
-                    </a></li>
+                    </a>
+                  </li>
                 </ul>
               </li>
 
-              <!-- My Account -->
               <li class="nav-item has-treeview">
                 <a href="#" class="nav-link">
                   <i class="nav-icon fas fa-user text-danger"></i>
                   <p>My Account <i class="right fas fa-angle-left"></i></p>
                 </a>
                 <ul class="nav nav-treeview">
-                  <li class="nav-item"><a href="<?= URL_HOST ?>my-account/profile.php" class="nav-link"><i
-                        class="fas fa-id-card nav-icon text-danger"></i>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>my-account/profile.php" class="nav-link">
+                      <i class="fas fa-id-card nav-icon text-danger"></i>
                       <p>Profile</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>my-account/notifications.php" class="nav-link"><i
-                        class="fas fa-bell nav-icon text-danger"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>my-account/notifications.php" class="nav-link">
+                      <i class="fas fa-bell nav-icon text-danger"></i>
                       <p>Notifications</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>my-account/activities.php" class="nav-link"><i
-                        class="fas fa-tasks nav-icon text-danger"></i>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a href="<?= URL_HOST ?>my-account/activities.php" class="nav-link">
+                      <i class="fas fa-tasks nav-icon text-danger"></i>
                       <p>Activities</p>
-                    </a></li>
-                  <li class="nav-item"><a href="javascript:void(0)" class="nav-link" onclick="admin.bye()"><i
-                        class="fas fa-sign-out-alt nav-icon text-danger"></i>
-                      <p>Logout</p>
-                    </a></li>
-                </ul>
-              </li>
-            <?php if ($active_user['role'] == 'Admin') { ?>
-              <!-- Admin Management Start -->
-              <li class="nav-item has-treeview">
-                <a href="#" class="nav-link">
-                  <i class="nav-icon fas fa-user-shield text-purple"></i>
-                  <p>Admin Management <i class="right fas fa-angle-left"></i></p>
-                </a>
-                <ul class="nav nav-treeview">
-                  <li class="nav-item">
-                    <a href="<?= URL_HOST ?>admin/all-users.php" class="nav-link">
-                      <i class="fas fa-users nav-icon text-purple"></i>
-                      <p>All Users</p>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a href="<?= URL_HOST ?>admin/notifications.php" class="nav-link">
-                      <i class="fas fa-bell nav-icon text-purple"></i>
-                      <p>Notifications</p>
-                    </a>
-                  </li>
-                  <li class="nav-item">
-                    <a href="<?= URL_HOST ?>admin/general-settings.php" class="nav-link">
-                      <i class="fas fa-cog nav-icon text-purple"></i>
-                      <p>General</p>
                     </a>
                   </li>
                 </ul>
               </li>
-              <!-- Admin Management Stop -->
-            <?php } ?>
+
+              <?php if (($active_user['role'] ?? '') == 'Admin') { ?>
+                <li class="nav-item has-treeview">
+                  <a href="#" class="nav-link">
+                    <i class="nav-icon fas fa-user-shield text-purple"></i>
+                    <p>Admin Management <i class="right fas fa-angle-left"></i></p>
+                  </a>
+                  <ul class="nav nav-treeview">
+                    <li class="nav-item">
+                      <a href="<?= URL_HOST ?>admin/all-users.php" class="nav-link">
+                        <i class="fas fa-users nav-icon text-purple"></i>
+                        <p>All Users</p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?= URL_HOST ?>admin/notifications.php" class="nav-link">
+                        <i class="fas fa-bell nav-icon text-purple"></i>
+                        <p>Notifications</p>
+                      </a>
+                    </li>
+                    <li class="nav-item">
+                      <a href="<?= URL_HOST ?>admin/general-settings.php" class="nav-link">
+                        <i class="fas fa-cog nav-icon text-purple"></i>
+                        <p>General</p>
+                      </a>
+                    </li>
+                  </ul>
+                </li>
+              <?php } ?>
+
             </ul>
           </nav>
         </div>
       </aside>
 
+      <script>
+        const currentPath = location.pathname;
+        const menuItem = document.querySelectorAll('.nav-link');
 
-      <!-- Active link highlight -->
-<script>
-const currentPath = location.pathname;
-const menuItem = document.querySelectorAll('.nav-link');
+        menuItem.forEach(item => {
+          let href = item.getAttribute("href");
 
-menuItem.forEach(item => {
-  let href = item.getAttribute("href");
+          if (!href || href === "#" || href.startsWith("javascript")) return;
 
-  // Ignore empty links, hash links, or javascript links
-  if (!href || href === "#" || href.startsWith("javascript")) return;
+          const itemPath = new URL(href, location.origin).pathname;
 
-  const itemPath = new URL(href, location.origin).pathname;
+          if (itemPath === currentPath) {
+            item.classList.add('active');
+            item.closest('.has-treeview')?.classList.add('menu-open');
+            item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
+            item.querySelector('p')?.classList.add('text-success');
+            item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
 
-  if (itemPath === currentPath) {
-    item.classList.add('active');
-    item.closest('.has-treeview')?.classList.add('menu-open');
-    item.closest('.nav-treeview')?.previousElementSibling?.classList.add('active');
-    item.querySelector('p')?.classList.add('text-success');
-    item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.classList.add('text-success');
-
-    let parentText = item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.textContent;
-    if (parentText) {
-      document.title = parentText + " | PaperTrade";
-    }
-  }
-});
-</script>
+            let parentText = item.closest('.nav-treeview')?.previousElementSibling?.querySelector('p')?.textContent;
+            if (parentText) {
+              document.title = parentText + " | PaperTrade";
+            }
+          }
+        });
+      </script>
 
       <style>
-        /* Sidebar Enhancements */
         .main-sidebar {
           background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
         }
@@ -765,8 +795,7 @@ menuItem.forEach(item => {
         }
       </style>
 
-      <!-- Content Wrapper. Contains page content -->
       <div class="content-wrapper">
-      <?php } ?>
+    <?php } ?>
 
-      <!-- (D2) PAGE CONTENTS -->
+    <!-- PAGE CONTENTS -->

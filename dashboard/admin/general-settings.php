@@ -220,6 +220,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         generalAddFlash("success", "Database Restored", "The uploaded backup has been applied successfully.");
         break;
 
+      case "update_api_keys":
+        $siteKey = trim($_POST["site_key"] ?? "");
+        $secretKey = trim($_POST["secret_key"] ?? "");
+        $finhubApi = trim($_POST["finhub_api"] ?? "");
+
+        if ($siteKey === "" || $secretKey === "" || $finhubApi === "") {
+          throw new RuntimeException("Site Key, Secret Key, and Finnhub API key are required.");
+        }
+
+        $stmt = $conn->prepare(
+          "INSERT INTO `settings` (`id`, `site_key`, `secret_key`, `finhub_api`) VALUES (1, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE `site_key` = VALUES(`site_key`), `secret_key` = VALUES(`secret_key`), `finhub_api` = VALUES(`finhub_api`)"
+        );
+        $stmt->bind_param("sss", $siteKey, $secretKey, $finhubApi);
+        $stmt->execute();
+        $stmt->close();
+
+        generalAddFlash("success", "API Keys Updated", "Site Key, Secret Key, and Finnhub API key have been saved successfully.");
+        break;
+
       default:
         generalAddFlash("error", "Invalid Action", "The requested action is not supported.");
     }
@@ -228,6 +248,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 
   generalRedirectSelf();
+}
+
+$currentSiteKey = "";
+$currentSecretKey = "";
+$currentFinhubApi = "";
+$result = $conn->query("SELECT site_key, secret_key, finhub_api FROM settings WHERE id = 1");
+if ($result && $row = $result->fetch_assoc()) {
+  $currentSiteKey = $row["site_key"] ?? "";
+  $currentSecretKey = $row["secret_key"] ?? "";
+  $currentFinhubApi = $row["finhub_api"] ?? "";
 }
 
 $alerts = $_SESSION["admin_flash"];
@@ -241,7 +271,7 @@ require PATH_LIB . "PAGE-top.php";
     <div class="row mb-2">
       <div class="col-sm-6">
         <h1 class="mb-0">General Settings</h1>
-        <small class="text-muted">Backup and restore the full trading database.</small>
+        <small class="text-muted">Manage API credentials and database backup operations.</small>
       </div>
     </div>
   </div>
@@ -280,7 +310,44 @@ require PATH_LIB . "PAGE-top.php";
     <?php endif; ?>
 
     <div class="row">
-      <div class="col-12 col-lg-6">
+      <div class="col-12 col-xl-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white border-0">
+            <div class="d-flex align-items-center">
+              <div class="pr-3 text-info settings-card-icon">
+                <i class="fas fa-key"></i>
+              </div>
+              <div>
+                <h3 class="card-title mb-0">API Keys</h3>
+                <small class="text-muted">Update site, secret, and Finnhub API credentials.</small>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              <input type="hidden" name="action" value="update_api_keys">
+              <div class="form-group">
+                <label for="site_key">Site Key</label>
+                <input type="password" id="site_key" name="site_key" class="form-control" value="<?= generalEscape($currentSiteKey) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="secret_key">Secret Key</label>
+                <input type="password" id="secret_key" name="secret_key" class="form-control" value="<?= generalEscape($currentSecretKey) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="finhub_api">Finnhub API Key</label>
+                <input type="password" id="finhub_api" name="finhub_api" class="form-control" value="<?= generalEscape($currentFinhubApi) ?>" required>
+              </div>
+              <button type="submit" class="btn btn-info">
+                <i class="fas fa-save mr-1"></i>
+                Save API Keys
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-4">
         <div class="card shadow-sm mb-4">
           <div class="card-header bg-white border-0">
             <div class="d-flex align-items-center">
@@ -309,7 +376,7 @@ require PATH_LIB . "PAGE-top.php";
         </div>
       </div>
 
-      <div class="col-12 col-lg-6">
+      <div class="col-12 col-xl-4">
         <div class="card shadow-sm mb-4 restore-card">
           <div class="card-header bg-white border-0">
             <div class="d-flex align-items-center">
