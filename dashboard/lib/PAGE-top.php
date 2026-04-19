@@ -20,138 +20,87 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <head>
-  <title>Dashboard</title>
+<title>Dashboard</title>
+<script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM="
+  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+<!-- Google Font: Source Sans Pro -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+<!-- Font Awesome -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/fontawesome-free/css/all.min.css">
+<!-- Tempusdominus Bootstrap 4 -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
+<!-- iCheck -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/icheck-bootstrap/icheck-bootstrap.min.css">
+<!-- JQVMap -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/jqvmap/jqvmap.min.css">
+<!-- Theme style -->
+<link rel="stylesheet" href="<?= URL_HOST ?>dist/css/adminlte.min.css">
+<!-- overlayScrollbars -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/overlayScrollbars/css/OverlayScrollbars.min.css">
+<!-- Daterange picker -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/daterangepicker/daterangepicker.css">
+<!-- summernote -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/summernote/summernote-bs4.min.css">
+<!-- Toastr -->
+<link rel="stylesheet" href="<?= URL_HOST ?>plugins/toastr/toastr.min.css">
+<script src="<?= URL_HOST ?>plugins/toastr/toastr.min.js"></script>
+<!-- jQuery -->
+<script src="<?= URL_HOST ?>plugins/jquery/jquery.min.js"></script>
+<!-- admin.js -->
+<script>var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };</script>
+<script async src="<?= URL_PUBLIC ?>admin.js"></script>
+<!-- Sweet Alert-->
+<script src="
+https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js
+"></script>
+<link href="
+https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css
+" rel="stylesheet">
 
-  <script src="https://code.jquery.com/jquery-3.6.3.js"
-    integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM="
-    crossorigin="anonymous"></script>
+<!-- favicon   -->
+<link rel="icon" href="<?= URL_HOST ?>dist/img/favicon.png" />
 
-  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+<script>var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };</script>
+<script async src="<?= URL_PUBLIC ?>admin.js?id=1"></script>
 
-  <!-- Google Font: Source Sans Pro -->
-  <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/fontawesome-free/css/all.min.css">
-
-  <!-- Tempusdominus Bootstrap 4 -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
-
-  <!-- iCheck -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/icheck-bootstrap/icheck-bootstrap.min.css">
-
-  <!-- JQVMap -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/jqvmap/jqvmap.min.css">
-
-  <!-- Theme style -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>dist/css/adminlte.min.css">
-
-  <!-- overlayScrollbars -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/overlayScrollbars/css/OverlayScrollbars.min.css">
-
-  <!-- Daterange picker -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/daterangepicker/daterangepicker.css">
-
-  <!-- summernote -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/summernote/summernote-bs4.min.css">
-
-  <!-- Toastr -->
-  <link rel="stylesheet" href="<?= URL_HOST ?>plugins/toastr/toastr.min.css">
-  <script src="<?= URL_HOST ?>plugins/toastr/toastr.min.js"></script>
-
-  <!-- jQuery -->
-  <script src="<?= URL_HOST ?>plugins/jquery/jquery.min.js"></script>
-
-  <!-- admin.js -->
-  <script>
-    var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };
-  </script>
-  <script async src="<?= URL_PUBLIC ?>admin.js"></script>
-
-  <!-- Sweet Alert -->
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.all.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.24.1/dist/sweetalert2.min.css" rel="stylesheet">
-
-  <!-- favicon -->
-  <link rel="icon" href="<?= URL_HOST ?>dist/img/favicon.png" />
-
-  <script>
-    var url = { host: "<?= URL_HOST ?>", public: "<?= URL_PUBLIC ?>" };
-  </script>
-  <script async src="<?= URL_PUBLIC ?>admin.js?id=1"></script>
-
-  <?php include 'fetch.php'; ?>
-
-  <?php
-  // =========================
-  // AVATAR FIX ONLY
-  // =========================
-  function dashboard_avatar_url($avatarFilename)
-  {
-    $avatarFilename = trim((string)$avatarFilename);
-
-    // fallback if empty
-    if ($avatarFilename === '') {
-      return 'http://localhost/trade/img/avatars/avatar_01.png';
-    }
-
-    // default avatar path: /trade/img/avatars/
-    $defaultAvatarPath = dirname(__DIR__, 2) . '/img/avatars/' . $avatarFilename;
-
-    // uploaded avatar path: /trade/dashboard/dist/img/
-    $uploadedAvatarPath = dirname(__DIR__) . '/dist/img/' . $avatarFilename;
-
-    if (file_exists($defaultAvatarPath)) {
-      return 'http://localhost/trade/img/avatars/' . rawurlencode($avatarFilename);
-    }
-
-    if (file_exists($uploadedAvatarPath)) {
-      return URL_HOST . 'dist/img/' . rawurlencode($avatarFilename);
-    }
-
-    // final fallback
-    return 'http://localhost/trade/img/avatars/avatar_01.png';
+<?php include 'fetch.php'; ?>
+<?php
+$navAvatarFile = "avatar.png";
+if (!empty($active_user['avatar'])) {
+  $candidateAvatar = basename((string) $active_user['avatar']);
+  $candidatePath = PATH_BASE . "dist" . DIRECTORY_SEPARATOR . "img" . DIRECTORY_SEPARATOR . $candidateAvatar;
+  if ($candidateAvatar !== "" && is_file($candidatePath)) {
+    $navAvatarFile = $candidateAvatar;
   }
+}
+$navAvatarUrl = URL_HOST . "dist/img/" . rawurlencode($navAvatarFile);
 
-  $activeAvatarUrl = dashboard_avatar_url($active_user['avatar'] ?? '');
-  ?>
+$navNotifications = [];
+$navNotificationsTotal = 0;
+$navNotificationsUnread = 0;
 
-  <?php
-  $navNotifications = [];
-  $navNotificationsTotal = 0;
-  $navNotificationsUnread = 0;
-
-  if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
-    $navUserId = (int)$active_user['user_id'];
-    if ($navUserId > 0) {
-      try {
-        $navLimit = 6;
-        $sqlNav = "SELECT notification_id, title, message, status, created_at 
-                   FROM notifications 
-                   WHERE user_id = ? 
-                   ORDER BY created_at DESC 
-                   LIMIT ?";
-        $stmtNav = mysqli_prepare($conn, $sqlNav);
-        if ($stmtNav) {
-          mysqli_stmt_bind_param($stmtNav, "ii", $navUserId, $navLimit);
-          mysqli_stmt_execute($stmtNav);
-          mysqli_stmt_bind_result($stmtNav, $navId, $navTitle, $navMessage, $navStatus, $navCreatedAt);
-
-          while (mysqli_stmt_fetch($stmtNav)) {
-            $row = [
-              "notification_id" => $navId,
-              "title" => $navTitle,
-              "message" => $navMessage,
-              "status" => $navStatus ?? 'Unread',
-              "created_at" => $navCreatedAt
-            ];
-
-            if (strcasecmp($row['status'], 'Read') !== 0) {
-              $navNotificationsUnread++;
-            }
-
-            $navNotifications[] = $row;
+if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
+  $navUserId = (int) $active_user['user_id'];
+  if ($navUserId > 0) {
+    try {
+      $navLimit = 6;
+      $sqlNav = "SELECT notification_id, title, message, status, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?";
+      $stmtNav = mysqli_prepare($conn, $sqlNav);
+      if ($stmtNav) {
+        mysqli_stmt_bind_param($stmtNav, "ii", $navUserId, $navLimit);
+        mysqli_stmt_execute($stmtNav);
+        mysqli_stmt_bind_result($stmtNav, $navId, $navTitle, $navMessage, $navStatus, $navCreatedAt);
+        while (mysqli_stmt_fetch($stmtNav)) {
+          $row = [
+            "notification_id" => $navId,
+            "title" => $navTitle,
+            "message" => $navMessage,
+            "status" => $navStatus ?? 'Unread',
+            "created_at" => $navCreatedAt
+          ];
+          if (strcasecmp($row['status'], 'Read') !== 0) {
+            $navNotificationsUnread++;
           }
 
           mysqli_stmt_close($stmtNav);
@@ -583,14 +532,10 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
             });
           </script>
 
-          <!-- USER DROPDOWN -->
-          <li class="nav-item dropdown user-menu">
-            <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">
-              <!-- AVATAR FIXED HERE -->
-              <img src="<?= htmlspecialchars($activeAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
-                alt="User"
-                class="img-size-32 img-circle">
-              <span class="d-none d-md-inline"><?= htmlspecialchars($active_user['user_name'] ?? 'User', ENT_QUOTES, 'UTF-8') ?></span>
+          <!-- User Profile Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link" data-toggle="dropdown" href="#">
+              <img src="<?= $navAvatarUrl ?>" alt="User" class="img-size-32 img-circle">
             </a>
 
             <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
@@ -632,10 +577,8 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
           <!-- User Panel -->
           <div class="user-panel mt-3 pb-3 mb-3 d-flex align-items-center border-bottom border-secondary">
             <div class="image">
-              <!-- AVATAR FIXED HERE -->
-              <img src="<?= htmlspecialchars($activeAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
-                class="img-circle elevation-3 border border-success"
-                alt="User Image">
+              <img src="<?= $navAvatarUrl ?>"
+                class="img-circle elevation-3 border border-success" alt="User Image">
             </div>
 
             <div class="info">
@@ -692,8 +635,11 @@ if ($_ISADMIN && isset($_ISLOGIN)) {
                     <a href="<?= URL_HOST ?>trading/transactions.php" class="nav-link">
                       <i class="fas fa-history nav-icon text-warning"></i>
                       <p>My Transactions</p>
-                    </a>
-                  </li>
+                    </a></li>
+                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/limit-lost.php" class="nav-link"><i
+                        class="fas fa-shield-alt nav-icon text-warning"></i>
+                      <p>Limit Lost</p>
+                    </a></li>
                 </ul>
               </li>
 
