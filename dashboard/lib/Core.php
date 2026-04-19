@@ -7,8 +7,8 @@ define("DB_HOST", "127.0.0.1"); // use TCP for the SSH tunnel
 define("DB_PORT", 3307);        // local forwarded port
 define("DB_NAME", "papertrade_trade");
 define("DB_CHARSET", "utf8");
-define("DB_USER", "root");
-define("DB_PASSWORD", "");
+define("DB_USER", "papertrade_trade");
+define("DB_PASSWORD", "7Dz)kI9-MCroe/=u");
 
 // (C) CONNECT
 $conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT);
