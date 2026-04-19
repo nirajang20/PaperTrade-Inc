@@ -102,12 +102,12 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
           if (strcasecmp($row['status'], 'Read') !== 0) {
             $navNotificationsUnread++;
           }
-
-          mysqli_stmt_close($stmtNav);
+          $navNotifications[] = $row;
         }
-
-        $navNotificationsTotal = count($navNotifications);
-      } catch (Throwable $th) {
+        mysqli_stmt_close($stmtNav);
+      }
+      $navNotificationsTotal = count($navNotifications);
+    } catch (Exception $ex) {
         $navNotifications = [];
         $navNotificationsTotal = 0;
         $navNotificationsUnread = 0;
