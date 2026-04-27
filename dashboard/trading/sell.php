@@ -525,15 +525,6 @@ if (!empty($watchlistItems)) {
     <small class="text-muted">Updated at <?=date('Y-m-d H:i:s')?> CST</small>
   </div>
 </div>
-        <div class="card card-outline card-warning mb-4">
-          <div class="card-header border-0 d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">ASSET NEWS</h3>
-            <span id="assetNewsStatus" class="small text-muted">Last Updated | Pending</span>
-          </div>
-          <div class="card-body p-0" id="assetNewsList">
-            <div class="text-center text-muted small py-4">Select an asset to load news.</div>
-          </div>
-        </div>
         <!-- AVAILABLE STOCKS -->
         <div class="card card-outline card-primary mb-4">
           <div class="card-header border-0 d-flex justify-content-between align-items-center">
@@ -858,7 +849,6 @@ if (!empty($watchlistItems)) {
   }
 </style>
 
-<script src="<?= URL_PUBLIC ?>news-engine.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const apiBase = "https://api.paper-trade.org";
@@ -923,17 +913,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const holdingValueDisplay = document.getElementById("holding-value-display");
   const cashBalanceDisplay = document.getElementById("cash-balance-display");
   const cashBalance = holdingInfoWrapper ? Number(holdingInfoWrapper.getAttribute('data-cash-balance') || 0) : 0;
-  const assetNewsWidget = window.PaperTradeNews && window.PaperTradeNews.createWidget({
-    endpoint: new URL("../news-proxy.php", window.location.href).toString(),
-    containerId: "assetNewsList",
-    statusId: "assetNewsStatus",
-    scope: "symbol",
-    autoRefreshMs: 180000,
-    emptyMessage: "No recent news for this asset.",
-    loadingMessage: "Loading asset news...",
-    errorMessage: "Unable to load asset news right now."
-  });
-
   const AUTO_REFRESH_MS = 5000;
   const CHART_AUTO_REFRESH_MS = 15000;
   const TRADE_FEE = 1;
@@ -1597,9 +1576,6 @@ document.addEventListener('DOMContentLoaded', function () {
     updateOrderEstimates();
     setActiveSymbol(stock.ticker);
     updateChartTitle();
-    if (assetNewsWidget && stock.ticker && stock.ticker !== previousSymbol) {
-      assetNewsWidget.load(stock.ticker);
-    }
     if (!options || !options.skipChart) {
       return loadChart(stock.ticker, state.currentRange, options);
     }

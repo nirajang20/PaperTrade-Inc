@@ -534,29 +534,112 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
 
           <!-- User Profile Dropdown -->
           <li class="nav-item dropdown">
-            <a class="nav-link" data-toggle="dropdown" href="#">
-              <img src="<?= $navAvatarUrl ?>" alt="User" class="img-size-32 img-circle">
+            <a class="nav-link p-1" data-toggle="dropdown" href="#" aria-label="User menu">
+              <img src="<?= $navAvatarUrl ?>" alt="User"
+                class="img-size-32 img-circle border border-secondary"
+                style="object-fit:cover;">
             </a>
 
-            <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-              <li class="user-header bg-primary">
-                <img src="<?= htmlspecialchars($activeAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
-                  class="img-circle elevation-2"
-                  alt="User Image">
+            <div class="dropdown-menu dropdown-menu-right p-0 shadow" style="width:280px;border-radius:10px;overflow:hidden;">
 
-                <p>
-                  <?= htmlspecialchars($active_user['user_name'] ?? 'User', ENT_QUOTES, 'UTF-8') ?>
-                  <small><?= htmlspecialchars($active_user['user_email'] ?? '', ENT_QUOTES, 'UTF-8') ?></small>
-                </p>
-              </li>
+              <!-- Avatar + name header -->
+              <div class="d-flex align-items-center p-3" style="background:linear-gradient(135deg,#1a3a5c,#0d2137);">
+                <img src="<?= $navAvatarUrl ?>" alt="Avatar"
+                  class="img-circle elevation-2 mr-3 flex-shrink-0"
+                  style="width:52px;height:52px;object-fit:cover;border:2px solid rgba(255,255,255,.25);">
+                <div class="overflow-hidden">
+                  <div class="font-weight-bold text-white text-truncate" style="font-size:.9rem;">
+                    <?= htmlspecialchars($active_user['user_name'] ?? 'User', ENT_QUOTES, 'UTF-8') ?>
+                  </div>
+                  <div class="text-truncate" style="font-size:.75rem;color:rgba(255,255,255,.6);">
+                    <?= htmlspecialchars($active_user['user_email'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+                  </div>
+                  <?php $role = $active_user['role'] ?? 'Trader'; ?>
+                  <span class="badge badge-sm mt-1"
+                    style="font-size:.65rem;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);">
+                    <?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8') ?>
+                  </span>
+                </div>
+              </div>
 
-              <li class="user-footer">
-                <a href="<?= URL_HOST ?>my-account/profile.php" class="btn btn-default btn-flat">Profile</a>
-                <a href="javascript:void(0)" class="btn btn-default btn-flat float-right" onclick="admin.bye()">Sign out</a>
-              </li>
+              <!-- Quick stats row -->
+              <?php
+                $displayBalance = isset($active_user['user_balance'])
+                  ? '$' . number_format((float)$active_user['user_balance'], 2)
+                  : '—';
+              ?>
+              <div class="d-flex border-bottom" style="background:#f8f9fa;">
+                <div class="flex-fill text-center py-2 border-right">
+                  <div class="font-weight-bold text-success" style="font-size:.85rem;"><?= $displayBalance ?></div>
+                  <div class="text-muted" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Balance</div>
+                </div>
+                <div class="flex-fill text-center py-2">
+                  <?php
+                    $holdingCount = 0;
+                    if (isset($conn) && isset($active_user['user_id'])) {
+                      $hcStmt = $conn->prepare("SELECT COUNT(*) FROM holding WHERE user_id = ?");
+                      if ($hcStmt) {
+                        $hcUid = (int)$active_user['user_id'];
+                        $hcStmt->bind_param("i", $hcUid);
+                        $hcStmt->execute();
+                        $hcStmt->bind_result($holdingCount);
+                        $hcStmt->fetch();
+                        $hcStmt->close();
+                      }
+                    }
+                  ?>
+                  <div class="font-weight-bold text-primary" style="font-size:.85rem;"><?= (int)$holdingCount ?></div>
+                  <div class="text-muted" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Holdings</div>
+                </div>
+              </div>
 
-              <div class="dropdown-divider"></div>
-            </ul>
+              <!-- Menu links -->
+              <div class="py-1">
+                <a href="<?= URL_HOST ?>my-account/profile.php"
+                  class="dropdown-item d-flex align-items-center py-2">
+                  <span class="icon-wrapper mr-3 text-center" style="width:28px;">
+                    <i class="fas fa-id-card text-primary"></i>
+                  </span>
+                  <span style="font-size:.85rem;">My Profile</span>
+                </a>
+
+                <a href="<?= URL_HOST ?>my-account/notifications.php"
+                  class="dropdown-item d-flex align-items-center py-2">
+                  <span class="icon-wrapper mr-3 text-center" style="width:28px;">
+                    <i class="fas fa-bell text-warning"></i>
+                  </span>
+                  <span style="font-size:.85rem;">Notifications</span>
+                  <?php if ($navNotificationsUnread > 0): ?>
+                    <span class="badge badge-warning ml-auto"><?= $navNotificationsUnread ?></span>
+                  <?php endif; ?>
+                </a>
+
+                <a href="<?= URL_HOST ?>my-account/activities.php"
+                  class="dropdown-item d-flex align-items-center py-2">
+                  <span class="icon-wrapper mr-3 text-center" style="width:28px;">
+                    <i class="fas fa-tasks text-info"></i>
+                  </span>
+                  <span style="font-size:.85rem;">Activity Log</span>
+                </a>
+
+                <a href="<?= URL_HOST ?>portfolio/my-holdings.php"
+                  class="dropdown-item d-flex align-items-center py-2">
+                  <span class="icon-wrapper mr-3 text-center" style="width:28px;">
+                    <i class="fas fa-wallet text-success"></i>
+                  </span>
+                  <span style="font-size:.85rem;">My Holdings</span>
+                </a>
+              </div>
+
+              <!-- Sign out -->
+              <div class="border-top p-2">
+                <a href="javascript:void(0)" onclick="admin.bye()"
+                  class="btn btn-block btn-sm btn-outline-danger d-flex align-items-center justify-content-center">
+                  <i class="fas fa-sign-out-alt mr-2"></i> Sign Out
+                </a>
+              </div>
+
+            </div>
           </li>
         </ul>
       </nav>
@@ -619,6 +702,10 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                       <p>Sell Stocks/Crypto</p>
                     </a>
                   </li>
+                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/limit-lost.php" class="nav-link"><i
+                        class="fas fa-shield-alt nav-icon text-warning"></i>
+                      <p>Limit Lost</p>
+                    </a></li>
                   <li class="nav-item">
                     <a href="<?= URL_HOST ?>trading/reminder.php" class="nav-link">
                       <i class="fas fa-bell nav-icon text-warning"></i>
@@ -635,10 +722,6 @@ if ($_ISADMIN && isset($conn) && isset($active_user['user_id'])) {
                     <a href="<?= URL_HOST ?>trading/transactions.php" class="nav-link">
                       <i class="fas fa-history nav-icon text-warning"></i>
                       <p>My Transactions</p>
-                    </a></li>
-                  <li class="nav-item"><a href="<?= URL_HOST ?>trading/limit-lost.php" class="nav-link"><i
-                        class="fas fa-shield-alt nav-icon text-warning"></i>
-                      <p>Limit Lost</p>
                     </a></li>
                 </ul>
               </li>
