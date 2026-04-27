@@ -5,7 +5,7 @@ date_default_timezone_set('America/Chicago');
 // (A) LOGIN CHECK
 $_ISADMIN = isset($_SESSION["user"]);
 if (!$_ISADMIN && !isset($_ISLOGIN)) {
-  header("Location: " . URL_HOST . "login.php");
+  header("Location: " . URL_HOST . "/auth/login.php");
   exit();
 }
 if ($_ISADMIN && isset($_ISLOGIN)) {
